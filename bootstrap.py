@@ -25,6 +25,6 @@ for i in range(int(sys.argv[3]), int(sys.argv[4])):
 	if sys.argv[5] == 'local':
 		script = './sjaracne ' + sys.argv[6] + ' -o ' + fname + ' -S ' + str(i) + ' > ' + lname
 	elif sys.argv[5] == 'cluster':
-		script = 'bsub -q compbio -P gn -o ' + lname + ' -R \"rusage[mem=18000]\" ./sjaracne ' + sys.argv[6] + ' -o ' + fname + ' -S ' + str(i)
+		script = 'bsub -q compbio -P gn -o ' + lname + ' -R \"rusage[mem=16000]\" ./sjaracne ' + sys.argv[6] + ' -o ' + fname + ' -S ' + str(i)
 	# Submit the job within the shell script into the computing clusters
 	subprocess.Popen(shlex.split(script))
