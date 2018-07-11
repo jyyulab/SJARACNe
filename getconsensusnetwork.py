@@ -1,28 +1,12 @@
-##############################################################
-## Python script to remove all shell scripts created by     ##
-## bootstrap.py, build a summary of all adj files created   ##
-## by each run and generate consensus network using all the ##
-## networks of the runs preserving edges with statistically ##
-## significant number of supports. Hypothesis tests are     ##
-## constructed in which a null distribution of edge supports##
-## is derived by randomly permuting the inferred edges in   ##
-## each adj file produced in each run.			    		##
-## Output1: The consensus network.  			   			##
-## Output2: Summary of all the networks.		    		##
-## Output3: Parameters which the program has been run with  ##
-## This script submits the job to the computing clusters    ##
-## at St. Jude Children's Research Hospital.                ##
-## Author: Alireza Khatamian				    			##
-## Email: akhatami@stjude.org				    			##
-##############################################################
-import math, sys, subprocess, os, shlex, statistics, tarfile, shutil
+import math, sys, os, tarfile, shutil
 from contextlib import closing
 
-if len(sys.argv) < 4:
-	print "Insufficient parameters!"
-        print "Usage: python getconsenusnetwork.py <input_dir> <threshold p-value> <output_dir>"
-        print "Example: python getconsensusnetwork.py out/ 1e-7 out1/"
-        exit()
+SJARACNE_PATH = os.environ['SJARACNE_PATH']
+PYTHON_PATH = os.environ['PYTHON_PATH']
+sys.path.insert(0, SJARACNE_PATH)
+sys.path.insert(0, PYTHON_PATH)
+
+import statistics
 
 # Variable definition
 total_support = {}
@@ -75,7 +59,7 @@ os.chdir(current_path)
 shutil.rmtree(sys.argv[1])
 
 # Writing out the summary of all bootstrap files into bootstrap_info.txt file
-info_file = open(sys.argv[3] + 'bootstrap_info_' + name + '.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/bootstrap_info_' + name + '.txt', 'w')
+info_file = open(sys.argv[3] + 'bootstrap_info_.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/bootstrap_info_.txt', 'w')
 info_file.write('Total edge tested: ' + str(len(total_support)) + '\n')
 info_file.write('Bonferroni corrected (0.05) alpha: ' + str(0.05/len(total_support)) + '\n')
 
@@ -95,14 +79,14 @@ if sys.argv[2] != None:
 	p_threshold = float(sys.argv[2])
 
 # Writing out the parameters that the bootstrap networks are constructed with plus other parameters that is used to create consensus network
-parameter_file = open(sys.argv[3] + 'parameter_info_' + name + '.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/parameter_info_' + name + '.txt', 'w')
+parameter_file = open(sys.argv[3] + 'parameter_info_.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/parameter_info_.txt', 'w')
 parameters += '>  Bootstrap No: ' + str(run_num) + '\n'
 parameters += '>  Source: sjaracne2\n'
-parameters += '>  Output network: ' + (sys.argv[3] + 'consensus_network_3col_' + name + '.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/consensus_network_3col_ ' + name + '.txt') + '\n'
+parameters += '>  Output network: ' + (sys.argv[3] + 'consensus_network_3col_.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/consensus_network_3col_.txt') + '\n'
 parameter_file.write(parameters)
 
 # Writing out the consensus network preserving edges with statistically significant support
-consensus_network = open(sys.argv[3] + 'consensus_network_3col_' + name + '.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/consensus_network_3col_' + name + '.txt', 'w')
+consensus_network = open(sys.argv[3] + 'consensus_network_3col_.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/consensus_network_3col_.txt', 'w')
 header += 'source\ttarget\tMI\n'
 consensus_network.write(header)
 current_gene = 'none'
