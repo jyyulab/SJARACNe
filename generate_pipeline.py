@@ -103,8 +103,8 @@ def run(args):
 	consensus(args_, paths)
 	enhanced(args_, paths)
 	pipeline(args_, paths)
-	script = 'sh ' + paths[3] + '00_pipeline_' + args_.project_name + '.sh >> ' + paths[1] + args_.project_name + '_pipeline.log \n'
-	subprocess.Popen(shlex.split(script))
+	#script = 'sh ' + paths[3] + '00_pipeline_' + args_.project_name + '.sh >> ' + paths[1] + args_.project_name + '_pipeline.log \n'
+	#subprocess.Popen(shlex.split(script))
 
 if __name__ == '__main__':
 	run(sys.argv)
