@@ -52,7 +52,7 @@
 
 <code>$export PYTHON_PATH=[path_to_python3]</code></br>
 <code>$export SJARACNE_PATH=[path_to_package]</code></br>
-<code>$python generate_pipeline.py SIG data/BRCA100.exp data/sig.txt data/</code></br>
+<code>$python3 generate_pipeline.py SIG data/BRCA100.exp data/sig.txt data/</code></br>
 <code>$cd data/sjaracne_SIG_scripts_/</code></br>
 <code>$sh 00_pipeline_SIG.sh</code></br>
 
@@ -60,6 +60,6 @@
 
 <code>$export PYTHON_PATH=[path_to_python3]</code></br>
 <code>$export SJARACNE_PATH=[path_to_package]</code></br>
-<code>$python generate_pipeline.py TF data/BRCA100.exp data/tf.txt data/</code></br>
+<code>$python3 generate_pipeline.py TF data/BRCA100.exp data/tf.txt data/</code></br>
 <code>$cd data/sjaracne_TF_scripts_/</code></br>
 <code>$sh 00_pipeline_TF.sh</code></br>
