@@ -100,4 +100,3 @@ for key in sorted(total_support.iterkeys()):	# Iterating on all edges in a sorte
 		mi = '{0:.4f}'.format(float(total_mi[key]) / float(total_support[key]))	# Computing MI corresponding to an edge remaining in the network
 		consensus_network.write(gene1 + '\t' + gene2 + '\t' + mi + '\n')
 consensus_network.close()
-

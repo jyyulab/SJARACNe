@@ -18,6 +18,7 @@ def setup(args):
 	parser.add_argument('--c_threshold', type=float, default=float('1e-5'), help='P-value threshold in building consensus network.')
 	parser.add_argument('--p_threshold', type=float, default=float('1e-7'), help='P-value threshold in building bootstrap netwroks.')
 	parser.add_argument('--depth', type=int, default=40, help='Maximum partitioning depth.')
+	parser.add_argument('--run', type=bool, default=True, help='Whether run the pipeline or just generate and stop.')
 	parser.add_argument('outdir', help='Output directory')
 	args_ = parser.parse_args(args[1:])
 	return args_
@@ -61,8 +62,8 @@ def bootstrap(args, paths):
 	for i in np.arange(1, b):
 		fname = paths[0] + args.project_name + '_run_' + str(i).zfill(int(np.log10(b)) + 1) + '.adj'
 		lname = paths[1] + args.project_name + '_run_' + str(i).zfill(int(np.log10(b)) + 1) + '.log'
-		arg = ' -i ' + args.expression_matrix + ' -l ' + args.hub_genes + ' -s ' + args.hub_genes + ' -p ' + str(args.p_threshold) + ' -e 0 -a adaptive_partitioning -r 1 -H config/ -N ' + str(args.depth)
-		script = './sjaracne ' + arg + ' -o ' + fname + ' -S ' + str(i) + ' >> ' + lname + ' &\n'
+		arg = ' -i ' + args.expression_matrix + ' -l ' + args.hub_genes + ' -s ' + args.hub_genes + ' -p ' + str(args.p_threshold) + ' -e 0 -a adaptive_partitioning -r 1 -H ' + SJARACNE_PATH + 'config/ -N ' + str(args.depth)
+		script = SJARACNE_PATH + 'sjaracne ' + arg + ' -o ' + fname + ' -S ' + str(i) + ' >> ' + lname + ' &\n'
 		out_2.write(script)
 	out_2.close()
 
@@ -78,10 +79,10 @@ def enhanced(args, paths):
 
 def pipeline(args, paths):
 	out_0 = open(paths[3] + '00_pipeline_' + args.project_name + '.sh', 'w')
-	script = 'sh ' + paths[3] + '00_cleanup_' + args.project_name + '.sh\n'
-	out_0.write(script)
-	script = 'sh ' + paths[3] + '01_prepare_' + args.project_name + '.sh\n'
-	out_0.write(script)
+	#script = 'sh ' + paths[3] + '00_cleanup_' + args.project_name + '.sh\n'
+	#out_0.write(script)
+	#script = 'sh ' + paths[3] + '01_prepare_' + args.project_name + '.sh\n'
+	#out_0.write(script)
 	script = 'sh ' + paths[3] + '02_bootstrap_' + args.project_name + '.sh\n'
 	out_0.write(script)
 	out_0.write('jobs=$(ps -ef | grep \"' + args.project_name + '\" | grep sjaracne -c)\n')
@@ -103,8 +104,9 @@ def run(args):
 	consensus(args_, paths)
 	enhanced(args_, paths)
 	pipeline(args_, paths)
-	#script = 'sh ' + paths[3] + '00_pipeline_' + args_.project_name + '.sh >> ' + paths[1] + args_.project_name + '_pipeline.log \n'
-	#subprocess.Popen(shlex.split(script))
+	if args_.run == True:
+		script = 'sh ' + paths[3] + '00_pipeline_' + args_.project_name + '.sh >> ' + paths[1] + args_.project_name + '_pipeline.log \n'
+		subprocess.Popen(shlex.split(script))
 
 if __name__ == '__main__':
 	run(sys.argv)
