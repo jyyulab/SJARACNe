@@ -41,7 +41,7 @@
 #### Running on Single Machine
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory]</code></br>
 
-OR
+<p>OR</p></br>
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run False</code></br>
 <code>$sh [out_directory]/sjaracne_[project_name]_scripts_/00_pipeline_[project_name].sh</code>
 
@@ -64,11 +64,13 @@ OR
 
 <code>$export PYTHON_PATH=[path_to_python3]</code></br>
 <code>$export SJARACNE_PATH=[path_to_package]</code></br>
-<code>$python3 generate_pipeline.py SIG data/BRCA100.exp data/sig.txt data/</code></br>
+<code>$python3 generate_pipeline.py SIG data/BRCA100.exp data/sig.txt data/output/</code></br>
 
 ## Example of Running Transcription Factor Network on a Single Machine
 
 <code>$export PYTHON_PATH=[path_to_python3]</code></br>
 <code>$export SJARACNE_PATH=[path_to_package]</code></br>
-<code>$python3 generate_pipeline.py TF data/BRCA100.exp data/tf.txt data/</code></br>
+<code>$python3 generate_pipeline.py TF data/BRCA100.exp data/tf.txt data/output/</code></br>
+
+<p>Expected output for the example data running 3 bootstraps is available under data/output/ directory.</p>
 
