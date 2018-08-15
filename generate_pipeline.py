@@ -85,8 +85,8 @@ def pipeline(args, paths):
 	#out_0.write(script)
 	script = 'sh ' + paths[3] + '02_bootstrap_' + args.project_name + '.sh\n'
 	out_0.write(script)
-	out_0.write('jobs=$(ps -ef | grep \"' + args.project_name + '\" | grep sjaracne -c)\n')
-	out_0.write('while [ $jobs -gt 0 ]\ndo\n\tsleep 30\n\tjobs=$(ps -ef | grep \"' + args.project_name + '\" | grep sjaracne -c)\ndone\n')
+	out_0.write('jobs=$(ps -ef | grep \"' + args.project_name + '\" | grep \"sjaracne -i\" -c)\n')
+	out_0.write('while [ $jobs -gt 0 ]\ndo\n\tsleep 30\n\tjobs=$(ps -ef | grep \"' + args.project_name + '\" | grep \"sjaracne -i\" -c)\ndone\n')
 	script = 'sh ' + paths[3] + '03_getconsensusnetwork_' + args.project_name + '.sh\n'
 	out_0.write(script)
 	out_0.write('jobs=$(ps -ef | grep \"' + args.project_name + '\" | grep getconsensusnetwork -c)\n')
