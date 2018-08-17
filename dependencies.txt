@@ -3,12 +3,6 @@ argparse==1.1
 igraph==0.1.11
 scipy==1.0.1
 XlsxWriter==1.0.2
-subprocess
-contextlib
-tarfile
-shutil
-shlex
-csv
-re
+pandas==0.22.0
 
 

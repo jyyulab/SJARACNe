@@ -1,9 +1,15 @@
 import os, sys
 
 SJARACNE_PATH = os.environ['SJARACNE_PATH']
+SJARACNE_PATH = SJARACNE_PATH if SJARACNE_PATH.endswith('/') else SJARACNE_PATH + '/'
 PYTHON_PATH = os.environ['PYTHON_PATH']
 sys.path.insert(0, SJARACNE_PATH)
 sys.path.insert(0, PYTHON_PATH)
+
+if sys.platform == 'linux':
+	sjaracne = 'sjaracne'
+elif sys.platform == 'darwin':
+	sjaracne = 'sjaracne.osx'
 
 import argparse
 import numpy as np
@@ -18,7 +24,8 @@ def setup(args):
 	parser.add_argument('--c_threshold', type=float, default=float('1e-5'), help='P-value threshold in building consensus network.')
 	parser.add_argument('--p_threshold', type=float, default=float('1e-7'), help='P-value threshold in building bootstrap netwroks.')
 	parser.add_argument('--depth', type=int, default=40, help='Maximum partitioning depth.')
-	parser.add_argument('--run', type=bool, default=True, help='Whether run the pipeline or just generate and stop.')
+	parser.add_argument('--run', type=bool, default=False, help='Whether run the pipeline or just generate and stop.')
+	parser.add_argument('--host', default='LOCAL', help='Whether to run on clusters or localhost. [LOCAL | CLUSTER]')
 	parser.add_argument('outdir', help='Output directory')
 	args_ = parser.parse_args(args[1:])
 	return args_
@@ -63,7 +70,10 @@ def bootstrap(args, paths):
 		fname = paths[0] + args.project_name + '_run_' + str(i).zfill(int(np.log10(b)) + 1) + '.adj'
 		lname = paths[1] + args.project_name + '_run_' + str(i).zfill(int(np.log10(b)) + 1) + '.log'
 		arg = ' -i ' + args.expression_matrix + ' -l ' + args.hub_genes + ' -s ' + args.hub_genes + ' -p ' + str(args.p_threshold) + ' -e 0 -a adaptive_partitioning -r 1 -H ' + SJARACNE_PATH + 'config/ -N ' + str(args.depth)
-		script = SJARACNE_PATH + 'sjaracne ' + arg + ' -o ' + fname + ' -S ' + str(i) + ' >> ' + lname + ' &\n'
+		script = SJARACNE_PATH + 'bin/' + sjaracne + ' ' + arg + ' -o ' + fname + ' -S ' + str(i) + ' >> ' + lname + ' '
+		if args.host == 'LOCAL':
+			script += '&'
+		script += '\n'
 		out_2.write(script)
 	out_2.close()
 
@@ -85,8 +95,8 @@ def pipeline(args, paths):
 	#out_0.write(script)
 	script = 'sh ' + paths[3] + '02_bootstrap_' + args.project_name + '.sh\n'
 	out_0.write(script)
-	out_0.write('jobs=$(ps -ef | grep \"' + args.project_name + '\" | grep \"sjaracne -i\" -c)\n')
-	out_0.write('while [ $jobs -gt 0 ]\ndo\n\tsleep 30\n\tjobs=$(ps -ef | grep \"' + args.project_name + '\" | grep \"sjaracne -i\" -c)\ndone\n')
+	out_0.write('jobs=$(ps -ef | grep \"' + args.project_name + '\" | grep \"' + sjaracne + ' -i\" -c)\n')
+	out_0.write('while [ $jobs -gt 0 ]\ndo\n\tsleep 30\n\tjobs=$(ps -ef | grep \"' + args.project_name + '\" | grep \"' + sjaracne + ' -i\" -c)\ndone\n')
 	script = 'sh ' + paths[3] + '03_getconsensusnetwork_' + args.project_name + '.sh\n'
 	out_0.write(script)
 	out_0.write('jobs=$(ps -ef | grep \"' + args.project_name + '\" | grep getconsensusnetwork -c)\n')

@@ -2,6 +2,7 @@ import math, sys, os, tarfile, shutil
 from contextlib import closing
 
 SJARACNE_PATH = os.environ['SJARACNE_PATH']
+SJARACNE_PATH = SJARACNE_PATH if SJARACNE_PATH.endswith('/') else SJARACNE_PATH + '/'
 PYTHON_PATH = os.environ['PYTHON_PATH']
 sys.path.insert(0, SJARACNE_PATH)
 sys.path.insert(0, PYTHON_PATH)
@@ -81,7 +82,7 @@ if sys.argv[2] != None:
 # Writing out the parameters that the bootstrap networks are constructed with plus other parameters that is used to create consensus network
 parameter_file = open(sys.argv[3] + 'parameter_info_.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/parameter_info_.txt', 'w')
 parameters += '>  Bootstrap No: ' + str(run_num) + '\n'
-parameters += '>  Source: sjaracne2\n'
+parameters += '>  Source: sjaracne\n'
 parameters += '>  Output network: ' + (sys.argv[3] + 'consensus_network_3col_.txt' if sys.argv[3].endswith('/') else sys.argv[3] + '/consensus_network_3col_.txt') + '\n'
 parameter_file.write(parameters)
 

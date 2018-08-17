@@ -7,9 +7,14 @@
 ## Requirements
 
 <p> Python 3.6.1 </p></br>
-
-<p>For python dependencies look at the dependencies.txt file</p>
-
+<list>
+	<l>numpy==1.14.2</l>
+	<l>argparse==1.1</l>
+	<l>igraph==0.1.11</l>
+	<l>scipy==1.0.1</l>
+	<l>XlsxWriter==1.0.2</l>
+	<l>pandas==0.22.0</l>
+</list>
 
 ## Running pipeline
 
