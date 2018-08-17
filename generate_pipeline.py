@@ -81,18 +81,20 @@ def bootstrap(args, paths):
 
 def consensus(args, paths):
 	out_3 = open(paths[3] + '03_getconsensusnetwork_' + args.project_name + '.sh', 'w')
-	out_3.write(PYTHON_PATH + ' ' + SJARACNE_PATH + 'getconsensusnetwork.py ' + paths[0] + ' ' + str(args.c_threshold) + ' ' + paths[2] + ' ')
+	script = PYTHON_PATH + ' ' + SJARACNE_PATH + 'getconsensusnetwork.py ' + paths[0] + ' ' + str(args.c_threshold) + ' ' + paths[2] + ' '
 	if args.host == 'LOCAL':
 		script += ' >> ' + paths[1] + args.project_name + '_consensus_network.log'
 	script += '\n'
+	out_3.write(script)
 	out_3.close()
 
 def enhanced(args, paths):
 	out_4 = open(paths[3] + '04_getenhancedconsensusnetwork_' + args.project_name + '.sh', 'w')
-	out_4.write(PYTHON_PATH + ' ' + SJARACNE_PATH + 'getenhancedconsensusnetwork.py ' + args.expression_matrix + ' ' + paths[2] + 'consensus_network_3col_.txt ' + paths[2] + ' ')
+	script = PYTHON_PATH + ' ' + SJARACNE_PATH + 'getenhancedconsensusnetwork.py ' + args.expression_matrix + ' ' + paths[2] + 'consensus_network_3col_.txt ' + paths[2] + ' '
 	if args.host == 'LOCAL':
 		script += ' >> ' + paths[1] + args.project_name + '_enhanced_network.log'
 	script += '\n'
+	out_4.write(script)
 	out_4.close()
 
 def pipeline(args, paths):
