@@ -70,6 +70,7 @@ Use the Makefile to compile the code and build your own distribution.</br>
 <code>--p_threshold, default=1e-7, P-value threshold in building bootstrap netwroks.</code></br>
 <code>--depth, default=40, help=Maximum partitioning depth.</code></br>
 <code>--run, default=True, help=Whether run the pipeline or just generate and stop.</code></br>
+<code>--host, default=LOCAL, help=Whether to run on clusters or localhost. [LOCAL | CLUSTER].</code></br>
 
 ## Example of Running Signaling Network on a Single Machine
 
