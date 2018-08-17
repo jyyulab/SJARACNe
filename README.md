@@ -16,14 +16,18 @@
 
 ## Install Requirements
 First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install package requirements.
+</br>
 <code>pip install -f dependencies.txt</code>
 
-## Running pipeline
+## Install SJARACNE
+The linux and OSX pre-built distribution are provided and the program will use the corresponding distribution with respect the operating system.</br>
 
-### Set Environemnt
+Use the Makefile to compile the code and build your own distribution.</br>
 
-<code>$export PYTHON_PATH=[path_to_python3]</code></br>
-<code>$export SJARACNE_PATH=[path_to_package]</code></br>
+## Set Environemnt
+
+<code>$export PYTHON_PATH=$(which python3)</code></br>
+<code>$export SJARACNE_PATH=$(pwd)</code></br>
 
 ### EASY RUN
 
