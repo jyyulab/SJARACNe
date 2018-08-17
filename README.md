@@ -29,6 +29,19 @@ Use the Makefile to compile the code and build your own distribution.</br>
 <code>$export PYTHON_PATH=$(which python3)</code></br>
 <code>$export SJARACNE_PATH=$(pwd)</code></br>
 
+## Main Command
+
+<code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory]</code></br>
+
+### Options
+
+* <code>--bootstrap, default=100, Number of bootstrap networks.</code></br>
+* <code>--c_threshold, default=1e-5, P-value threshold in building consensus network.</code></br>
+* <code>--p_threshold, default=1e-7, P-value threshold in building bootstrap netwroks.</code></br>
+* <code>--depth, default=40, help=Maximum partitioning depth.</code></br>
+* <code>--run, default=True, help=Whether run the pipeline or just generate and stop.</code></br>
+* <code>--host, default=LOCAL, help=Whether to run on clusters or localhost. [LOCAL | CLUSTER].</code></br>
+
 ### EASY RUN
 
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory]</code></br>
@@ -56,21 +69,13 @@ Use the Makefile to compile the code and build your own distribution.</br>
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run False</code></br>
 <code>$sh [out_directory]/sjaracne_[project_name]_scripts_/00_pipeline_[project_name].sh</code>
 
-
 #### Running on Clusters
 
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run False</code></br>
 <p>To run the pipeline on a cluster, use the script files under the scripts directory and submit the scripts 01 to 04 to the clusters.</p>
 
 
-### Options
 
-<code>--bootstrap, default=100, Number of bootstrap networks.</code></br>
-<code>--c_threshold, default=1e-5, P-value threshold in building consensus network.</code></br>
-<code>--p_threshold, default=1e-7, P-value threshold in building bootstrap netwroks.</code></br>
-<code>--depth, default=40, help=Maximum partitioning depth.</code></br>
-<code>--run, default=True, help=Whether run the pipeline or just generate and stop.</code></br>
-<code>--host, default=LOCAL, help=Whether to run on clusters or localhost. [LOCAL | CLUSTER].</code></br>
 
 ## Example of Running Signaling Network on a Single Machine
 
