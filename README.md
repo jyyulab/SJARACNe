@@ -69,7 +69,7 @@ Use the Makefile to compile the code and build your own distribution.</br>
 ## Running on Single Machine
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run True</code></br>
 
-<p>OR</p></br>
+<p>OR</p>
 
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run False</code></br>
 <code>$sh [out_directory]/sjaracne_[project_name]_scripts_/00_pipeline_[project_name].sh</code>
