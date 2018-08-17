@@ -14,6 +14,10 @@
 	* XlsxWriter==1.0.2
 	* pandas==0.22.0
 
+## Install Requirements
+<p>First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install package requirements.</p>
+<code>pip install -f dependencies.txt</code>
+
 ## Running pipeline
 
 ### Set Environemnt
