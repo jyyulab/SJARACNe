@@ -6,7 +6,7 @@
 
 ## Requirements
 
-<p> Python 3.6.1 </p></br>
+<p>[Python 3.6.1](https://www.python.org/downloads/)</p></br>
 <list>
 	<l>numpy==1.14.2</l>
 	<l>argparse==1.1</l>
