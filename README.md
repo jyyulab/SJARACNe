@@ -6,15 +6,13 @@
 
 ## Requirements
 
-[Python 3.6.1](https://www.python.org/downloads/)
-<list>
-	<l>numpy==1.14.2</l>
-	<l>argparse==1.1</l>
-	<l>igraph==0.1.11</l>
-	<l>scipy==1.0.1</l>
-	<l>XlsxWriter==1.0.2</l>
-	<l>pandas==0.22.0</l>
-</list>
+* [Python 3.6.1](https://www.python.org/downloads/)
+	* numpy==1.14.2
+	* argparse==1.1
+	* igraph==0.1.11
+	* scipy==1.0.1
+	* XlsxWriter==1.0.2
+	* pandas==0.22.0
 
 ## Running pipeline
 
