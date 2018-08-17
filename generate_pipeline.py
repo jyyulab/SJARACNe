@@ -28,6 +28,8 @@ def setup(args):
 	parser.add_argument('--host', default='LOCAL', help='Whether to run on clusters or localhost. [LOCAL | CLUSTER]')
 	parser.add_argument('outdir', help='Output directory')
 	args_ = parser.parse_args(args[1:])
+	if args_.host == 'CLUSTER':
+		args_.run = 'False'
 	return args_
 
 def setup_directory(out_dir, project_name):
@@ -70,21 +72,27 @@ def bootstrap(args, paths):
 		fname = paths[0] + args.project_name + '_run_' + str(i).zfill(int(np.log10(b)) + 1) + '.adj'
 		lname = paths[1] + args.project_name + '_run_' + str(i).zfill(int(np.log10(b)) + 1) + '.log'
 		arg = ' -i ' + args.expression_matrix + ' -l ' + args.hub_genes + ' -s ' + args.hub_genes + ' -p ' + str(args.p_threshold) + ' -e 0 -a adaptive_partitioning -r 1 -H ' + SJARACNE_PATH + 'config/ -N ' + str(args.depth)
-		script = SJARACNE_PATH + 'bin/' + sjaracne + ' ' + arg + ' -o ' + fname + ' -S ' + str(i) + ' >> ' + lname + ' '
+		script = SJARACNE_PATH + 'bin/' + sjaracne + ' ' + arg + ' -o ' + fname + ' -S ' + str(i) + ' '
 		if args.host == 'LOCAL':
-			script += '&'
+			script += ' >> ' + lname + ' &'
 		script += '\n'
 		out_2.write(script)
 	out_2.close()
 
 def consensus(args, paths):
 	out_3 = open(paths[3] + '03_getconsensusnetwork_' + args.project_name + '.sh', 'w')
-	out_3.write(PYTHON_PATH + ' ' + SJARACNE_PATH + 'getconsensusnetwork.py ' + paths[0] + ' ' + str(args.c_threshold) + ' ' + paths[2] + ' >> ' + paths[1] + args.project_name + '_consensus_network.log\n')
+	out_3.write(PYTHON_PATH + ' ' + SJARACNE_PATH + 'getconsensusnetwork.py ' + paths[0] + ' ' + str(args.c_threshold) + ' ' + paths[2] + ' ')
+	if args.host == 'LOCAL':
+		script += ' >> ' + paths[1] + args.project_name + '_consensus_network.log'
+	script += '\n'
 	out_3.close()
 
 def enhanced(args, paths):
 	out_4 = open(paths[3] + '04_getenhancedconsensusnetwork_' + args.project_name + '.sh', 'w')
-	out_4.write(PYTHON_PATH + ' ' + SJARACNE_PATH + 'getenhancedconsensusnetwork.py ' + args.expression_matrix + ' ' + paths[2] + 'consensus_network_3col_.txt ' + paths[2] + ' >> ' + paths[1] + args.project_name + '_enhanced_network.log\n')
+	out_4.write(PYTHON_PATH + ' ' + SJARACNE_PATH + 'getenhancedconsensusnetwork.py ' + args.expression_matrix + ' ' + paths[2] + 'consensus_network_3col_.txt ' + paths[2] + ' ')
+	if args.host == 'LOCAL':
+		script += ' >> ' + paths[1] + args.project_name + '_enhanced_network.log'
+	script += '\n'
 	out_4.close()
 
 def pipeline(args, paths):
@@ -115,7 +123,10 @@ def run(args):
 	enhanced(args_, paths)
 	pipeline(args_, paths)
 	if args_.run == True:
-		script = 'sh ' + paths[3] + '00_pipeline_' + args_.project_name + '.sh >> ' + paths[1] + args_.project_name + '_pipeline.log \n'
+		script = 'sh ' + paths[3] + '00_pipeline_' + args_.project_name + '.sh '
+		if args_.host == 'LOCAL':
+			script += ' >> ' + paths[1] + args_.project_name + '_pipeline.log'
+		script += '\n'
 		subprocess.Popen(shlex.split(script))
 
 if __name__ == '__main__':
