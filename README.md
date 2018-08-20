@@ -48,10 +48,10 @@ Use the Makefile to compile the code and build your own distribution.</br>
 
 <p>The above command will create 4 directories under the provided out_directory parameter as follows:</p></br>
 
-* <code>[out_directory]/sjaracne_[project_name]_out_</code></br>
-* <code>[out_directory]/sjaracne_[project_name]_log_</code></br>
-* <code>[out_directory]/sjaracne_[project_name]_out_.final</code></br>
-* <code>[out_directory]/sjaracne_[project_name]_scripts_</code></br></br>
+* <code>[out_directory]/sjaracne_[project_name]\_out\_</code></br>
+* <code>[out_directory]/sjaracne_[project_name]\_log\_</code></br>
+* <code>[out_directory]/sjaracne_[project_name]\_out\_.final</code></br>
+* <code>[out_directory]/sjaracne_[project_name]\_scripts\_</code></br></br>
 
 <p>There will be shell script files corresponding to the provided input files in the scripts directory in the following order:</p></br>
 
