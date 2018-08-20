@@ -52,7 +52,7 @@ Use the Makefile to compile the code and build your own distribution.</br>
 * <code>[out_directory]/sjaracne_[project_name]_out_.final</code></br>
 * <code>[out_directory]/sjaracne_[project_name]_scripts_</code></br>
 
-<p>There will be shell script files corresponding to the provided input files in the scripts directory in the following order:</p>
+<p>There will be shell script files corresponding to the provided input files in the scripts directory in the following order:</p></br>
 
 * <code>00_cleanup_[project_name].sh</code></br>
 * <code>00_pipeline_[project_name].sh</code></br>
@@ -63,10 +63,10 @@ Use the Makefile to compile the code and build your own distribution.</br>
 
 <p>The command will run scripts 02-04 automatically and generate the final results.</p></br>
 
-<p>To generate only scripts and stop run the command as follows:</p></br>
+<p>To generate only scripts and stop, run the command as follows:</p></br>
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory]</code></br>
 
-## Running on Single Machine
+## Running on Single Machine (Linux/OSX)
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run True</code></br>
 
 <p>OR</p>
@@ -77,7 +77,11 @@ Use the Makefile to compile the code and build your own distribution.</br>
 ## Running on Clusters
 
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run False --host CLUSTER</code></br>
-<p>To run the pipeline on a cluster, use the script files under the scripts directory and submit the scripts 01 to 04 to the clusters.</p>
+<p>To run the pipeline on a cluster, use the script files under the scripts directory and submit the scripts 02 to 04 to the clusters.</p>
+
+### Example of Running the Scripts on IBM LSF Cluster
+<p>Run the following command for each script file:<p></br>
+<code>cat [script_file] | while read line; do bsub $line; done</code>
 
 ## Example of Running Signaling Network on a Single Machine
 
