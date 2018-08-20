@@ -96,5 +96,6 @@ Use the Makefile to compile the code and build your own distribution.</br>
 <code>$export SJARACNE_PATH=$(pwd)</code></br>
 <code>$python3 generate_pipeline.py TF data/BRCA100.exp data/tf.txt data/output/ --run True</code></br>
 
-<p>Expected output for the example data running 3 bootstraps is available under data/output/ directory.</p>
+## Expected Output
+<p>Expected output for the example data with 3 bootstraps is available under data/output/ directory.</p>
 
