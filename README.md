@@ -81,7 +81,7 @@ Use the Makefile to compile the code and build your own distribution.</br>
 <p>To run the pipeline on a cluster, use the script files under the scripts directory and submit the scripts 02 to 04 to the clusters.</p>
 
 ### Example of Running the Scripts on IBM LSF Cluster
-<p>Run the following command for each script file:<p>
+<p>Run the following command for each script file, wait until the jobs are done, and do the same thing for the next script file:<p>
 <code>cat [script_file] | while read line; do bsub $line; done</code>
 
 ## Example of Running Signaling Network on a Single Machine
