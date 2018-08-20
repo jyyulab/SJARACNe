@@ -39,8 +39,10 @@ Use the Makefile to compile the code and build your own distribution.</br>
 * <code>--c_threshold, default=1e-5, P-value threshold in building consensus network.</code></br>
 * <code>--p_threshold, default=1e-7, P-value threshold in building bootstrap netwroks.</code></br>
 * <code>--depth, default=40, help=Maximum partitioning depth.</code></br>
-* <code>--run, default=True, help=Whether run the pipeline or just generate and stop.</code></br>
+* <code>--run, default=False, help=Whether run the pipeline or just generate and stop.</code></br>
 * <code>--host, default=LOCAL, help=Whether to run on clusters or localhost. [LOCAL | CLUSTER].</code></br>
+
+NOTE: Setting the host option to CLUSTER will change the run option to False.
 
 ## EASY RUN
 
