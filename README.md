@@ -47,10 +47,11 @@ Use the Makefile to compile the code and build your own distribution.</br>
 <code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run True</code></br>
 
 <p>The above command will create 4 directories under the provided out_directory parameter as follows:</p></br>
+
 * <code>[out_directory]/sjaracne_[project_name]_out_</code></br>
 * <code>[out_directory]/sjaracne_[project_name]_log_</code></br>
 * <code>[out_directory]/sjaracne_[project_name]_out_.final</code></br>
-* <code>[out_directory]/sjaracne_[project_name]_scripts_</code></br>
+* <code>[out_directory]/sjaracne_[project_name]_scripts_</code></br></br>
 
 <p>There will be shell script files corresponding to the provided input files in the scripts directory in the following order:</p></br>
 
