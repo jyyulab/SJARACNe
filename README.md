@@ -1,8 +1,8 @@
-# SJARACNE
+# SJARACNe
 
 ## Download
 
-<code>git clone https://github.com/jyyulab/SJARACNE.git</code>
+<code>git clone https://github.com/jyyulab/SJARACNe.git</code>
 
 ## Requirements
 
@@ -19,7 +19,7 @@ First install [Python 3.6.1](https://www.python.org/downloads/) and then use the
 </br></br>
 <code>pip install -f dependencies.txt</code>
 
-## Install SJARACNE
+## Install SJARACNe
 The linux and OSX pre-built distribution are provided and the program will use the corresponding distribution with respect the operating system.</br>
 
 Use the Makefile to compile the code and build your own distribution.</br>
