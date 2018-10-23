@@ -2,7 +2,7 @@
 
 ## Reference
 
-Khatamian, A., Rice, S. V., Paull, E. O., Califano, A. & Yu, J. SJARACNe: a scalable software tool for gene network reverse engineering from big data. Bioinformatics (submitted) (2018).
+Alireza Khatamian, Evan O. Paull, Andrea Califano* & Jiyang Yu*. SJARACNe: a scalable software tool for gene network reverse engineering from big data. Bioinformatics (in print) (2018). * Corresponding authors.
 
 ## Download
 
