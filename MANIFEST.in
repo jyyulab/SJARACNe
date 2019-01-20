@@ -1,0 +1,2 @@
+include SJARACNe/bin/*
+include SJARACNe/config/*.txt

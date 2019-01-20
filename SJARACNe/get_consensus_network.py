@@ -1,13 +1,8 @@
-import math, sys, os, tarfile, shutil
+import sys, os, tarfile, shutil
 from contextlib import closing
+import numpy as np
 
-SJARACNE_PATH = os.environ["SJARACNE_PATH"]
-SJARACNE_PATH = SJARACNE_PATH if SJARACNE_PATH.endswith("/") else SJARACNE_PATH + "/"
-PYTHON_PATH = os.environ["PYTHON_PATH"]
-sys.path.insert(0, SJARACNE_PATH)
-sys.path.insert(0, PYTHON_PATH)
-
-import statistics
+from SJARACNe import statistics
 
 # Variable definition
 total_support = {}
@@ -94,7 +89,7 @@ for i in range(0, run_num):
     prob = float(total_edge[i]) / float(len(total_support))
     mu += prob
     sigma += prob * (1 - prob)
-sigma = math.sqrt(sigma)
+sigma = np.sqrt(sigma)
 
 info_file.write("mu: " + str(mu) + "\n")
 info_file.write("sigma: " + str(sigma) + "\n")
@@ -112,7 +107,7 @@ parameter_file = open(
     "w",
 )
 parameters += ">  Bootstrap No: " + str(run_num) + "\n"
-parameters += ">  Source: sjaracne\n"
+parameters += ">  Source: sjaracne2\n"
 parameters += (
     ">  Output network: "
     + (

@@ -1,19 +1,17 @@
-import os, sys
+#!/usr/bin/env python3
 
-SJARACNE_PATH = os.environ["SJARACNE_PATH"]
-SJARACNE_PATH = SJARACNE_PATH if SJARACNE_PATH.endswith("/") else SJARACNE_PATH + "/"
-PYTHON_PATH = os.environ["PYTHON_PATH"]
-sys.path.insert(0, SJARACNE_PATH)
-sys.path.insert(0, PYTHON_PATH)
+import os
+import sys
+import argparse
+import numpy as np
+import shlex
+import subprocess
+
 
 if sys.platform == "linux":
     sjaracne = "sjaracne"
 elif sys.platform == "darwin":
     sjaracne = "sjaracne.osx"
-
-import argparse
-import numpy as np
-import shlex, subprocess
 
 
 def setup(args):
@@ -146,9 +144,7 @@ def bootstrap(args, paths):
             + str(args.depth)
         )
         script = (
-            SJARACNE_PATH
-            + "bin/"
-            + sjaracne
+            sjaracne
             + " "
             + arg
             + " -o "
@@ -167,10 +163,7 @@ def bootstrap(args, paths):
 def consensus(args, paths):
     out_3 = open(paths[3] + "03_getconsensusnetwork_" + args.project_name + ".sh", "w")
     script = (
-        PYTHON_PATH
-        + " "
-        + SJARACNE_PATH
-        + "getconsensusnetwork.py "
+        "getconsensusnetwork.py "
         + paths[0]
         + " "
         + str(args.c_threshold)
@@ -190,10 +183,7 @@ def enhanced(args, paths):
         paths[3] + "04_getenhancedconsensusnetwork_" + args.project_name + ".sh", "w"
     )
     script = (
-        PYTHON_PATH
-        + " "
-        + SJARACNE_PATH
-        + "getenhancedconsensusnetwork.py "
+        "getenhancedconsensusnetwork.py "
         + args.expression_matrix
         + " "
         + paths[2]
@@ -253,7 +243,7 @@ def pipeline(args, paths):
     out_0.close()
 
 
-def run(args):
+def main(args):
     args_ = setup(args)
     paths = setup_directory(args_.outdir, args_.project_name)
     cleanup(args_, paths)
@@ -262,14 +252,14 @@ def run(args):
     consensus(args_, paths)
     enhanced(args_, paths)
     pipeline(args_, paths)
-    if args_.run == True:
+    if args_.run:
         script = "sh " + paths[3] + "00_pipeline_" + args_.project_name + ".sh "
         if args_.host == "LOCAL":
             script += " >> " + paths[1] + args_.project_name + "_pipeline.log"
         script += "\n"
         subprocess.Popen(shlex.split(script))
+    print("[INFO] --> [ARCN] Finished.")
 
 
 if __name__ == "__main__":
-    run(sys.argv)
-    print("[INFO] --> [ARCN] Finished.")
+    main(sys.argv)
