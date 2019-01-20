@@ -10,8 +10,8 @@ setup(
     description="Gene network reverse engineering from big data",
     url="https://github.com/jyyulab/SJARACNe",
     author="Liang Ding, Chenxi Qian, Alireza Khatamian",
-    author_email="liang.ding@stjude.org",
-    license="Apache License 2.0",
+    author_email="liang.ding@stjude.org, chenxi.qian@stjude.org",
+    license="See LICENSE.md",
     install_requires=[
         "pandas >= 0.22.0",
         "numpy >= 1.14.2",

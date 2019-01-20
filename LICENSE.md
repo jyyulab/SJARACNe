@@ -4,7 +4,7 @@ This software evaluation license agreement ("License") is between The Trustees o
 
 a. Documentation shall mean all manuals, user documentation, and other related materials, if any, pertaining to the Program which are furnished to You by University in connection with the Program.
 
-b. Program shall mean the SJARACNe software computer program developed in the laboratories of Dr. Jiyang Yu from St. Jude Childrenís Research Hospital (by Dr. Alireza Khatamian) and Dr. Andrea Califano from Columbia University and supplied to You pursuant to this Agreement.
+b. Program shall mean the SJARACNe software computer program developed in the laboratories of Dr. Jiyang Yu from St. Jude Childrenís Research Hospital (by Dr. Alireza Khatamian and Dr. Liang Ding) and Dr. Andrea Califano from Columbia University and supplied to You pursuant to this Agreement.
 
 c. "You" (or "Your") means an individual or legal entity exercising rights under, and complying with all of the terms of, this License. If "You" are an individual, You hereby represent and warrant to Columbia that You are an employee of a non-profit or a not-for-profit entity. If "You" are a legal entity, You hereby represent and warrant to Columbia that You are a non-profit or not-for-profit entity, and ìYouî includes any entity that controls, is controlled by, or is under common control with You.
 
