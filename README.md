@@ -25,7 +25,7 @@ Alireza Khatamian, Evan O. Paull, Andrea Califano* & Jiyang Yu*. SJARACNe: a sca
 The recommended method of setting up the required Python environment and dependencies is to use the
 [conda](https://conda.io/en/latest/) dependency manager:
 
-```py
+```sh
 conda create -n sjaracne python=3.6.1
 conda activate aracne
 conda install --file dependencies.txt
