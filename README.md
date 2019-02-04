@@ -13,7 +13,7 @@ Alireza Khatamian, Evan O. Paull, Andrea Califano* & Jiyang Yu*. SJARACNe: a sca
 * [Python 3.6.1](https://www.python.org/downloads/)
 	* numpy==1.14.2
 	* argparse==1.1
-	* igraph
+	* python-igraph
 	* scipy==1.0.1
 	* XlsxWriter==1.0.2
 	* pandas==0.22.0
