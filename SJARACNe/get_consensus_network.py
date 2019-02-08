@@ -1,8 +1,14 @@
-import sys, os, tarfile, shutil
+#!/usr/bin/env python3
+
+import sys
+import os
+import tarfile
+import shutil
 from contextlib import closing
 import numpy as np
 
 from SJARACNe import statistics
+
 
 # Variable definition
 total_support = {}

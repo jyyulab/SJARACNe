@@ -138,8 +138,8 @@ def bootstrap(args, paths):
             + " -p "
             + str(args.p_threshold)
             + " -e 0 -a adaptive_partitioning -r 1 -H "
-            + SJARACNE_PATH
-            + "config/ -N "
+            + os.path.dirname(os.path.realpath(__file__))
+            + "/config/ -N "
             + str(args.depth)
         )
         script = "sjaracne " + arg + " -o " + fname + " -S " + str(i)
@@ -182,7 +182,7 @@ def enhanced(args, paths):
 def pipeline(args, paths):
     out_0 = open(paths[3] + "00_pipeline_" + args.project_name + ".sh", "w")
     curr_dir = os.getcwd()
-    os.chdir(SJARACNE_PATH)
+    os.chdir(os.path.dirname(os.path.realpath(__file__)))
     if args.host == "LSF":
         # script = 'sh ' + paths[3] + '01_prepare_' + args.project_name + '.sh\n'
         # out_0.write(script)
@@ -303,7 +303,7 @@ def pipeline(args, paths):
     out_0.close()
 
 
-def main(args):
+def run(args):
     args_ = setup(args)
     paths = setup_directory(args_.outdir, args_.project_name)
     cleanup(args_, paths)
@@ -348,5 +348,11 @@ def main(args):
     print("[INFO] --> [ARCN] Finished.")
 
 
+def main():
+    os.environ["PATH"] += os.pathsep + os.path.dirname(os.path.realpath(__file__))
+    run(sys.argv)
+    print("[INFO] --> [MICA] Finished.")
+
+
 if __name__ == "__main__":
-    main(sys.argv)
+    main()

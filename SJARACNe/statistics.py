@@ -1,9 +1,5 @@
-#################################################################
-## Implementation of Statistics::Distribution::uprob function  ##
-## of perl in python.					       ##
-## Author: Alireza Khatamian				       ##
-## Email: akhatami@stjude.org				       ##
-#################################################################
+#!/usr/bin/env python3
+
 import math
 
 

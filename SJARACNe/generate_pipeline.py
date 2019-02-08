@@ -139,8 +139,8 @@ def bootstrap(args, paths):
             + " -p "
             + str(args.p_threshold)
             + " -e 0 -a adaptive_partitioning -r 1 -H "
-            + SJARACNE_PATH
-            + "config/ -N "
+            + os.path.dirname(os.path.realpath(__file__))
+            + "/config/ -N "
             + str(args.depth)
         )
         script = (

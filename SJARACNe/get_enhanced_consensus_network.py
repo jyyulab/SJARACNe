@@ -1,7 +1,12 @@
-import os, sys, csv, re, igraph
+#!/usr/bin/env python3
+
+import sys
+import re
+import igraph
 from scipy import stats
 import xlsxwriter
 import pandas as pd
+
 
 marker_set = {}
 exp = pd.read_csv(sys.argv[1], sep="\t")
