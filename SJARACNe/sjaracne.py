@@ -32,7 +32,7 @@ def setup(args):
         "--p_threshold",
         type=float,
         default=float("1e-7"),
-        help="P-value threshold in building bootstrap netwroks.",
+        help="P-value threshold in building bootstrap networks.",
     )
     parser.add_argument(
         "--depth", type=int, default=40, help="Maximum partitioning depth."
@@ -40,8 +40,8 @@ def setup(args):
     parser.add_argument("outdir", help="Output directory")
     parser.add_argument(
         "--host",
-        default="LSF",
-        help="Computation host of the jobs [LOCAL | LSF] (default: LSF)",
+        default="LOCAL",
+        help="Computation host of the jobs [LOCAL | LSF] (default: LOCAL)",
     )
     parser.add_argument(
         "--resource",
@@ -58,13 +58,13 @@ def setup(args):
 
 
 def setup_directory(out_dir, project_name):
-    scMINER_path = out_dir + "scMINER_" + project_name + "/"
-    boot_path = scMINER_path + "scMINER_SJARACNE_out/"
-    log_path = scMINER_path + "scMINER_SJARACNE_log/"
-    net_path = scMINER_path + "scMINER_SJARACNE_out.final/"
-    script_path = scMINER_path + "scMINER_SJARACNE_scripts/"
-    if not os.path.exists(scMINER_path):
-        os.mkdir(scMINER_path)
+    SJARACNE_path = out_dir + "SJARACNE_" + project_name + "/"
+    boot_path = SJARACNE_path + "SJARACNE_out/"
+    log_path = SJARACNE_path + "SJARACNE_log/"
+    net_path = SJARACNE_path + "SJARACNE_out.final/"
+    script_path = SJARACNE_path + "SJARACNE_scripts/"
+    if not os.path.exists(SJARACNE_path):
+        os.mkdir(SJARACNE_path)
     if not os.path.exists(boot_path):
         os.mkdir(boot_path)
     if not os.path.exists(log_path):
@@ -142,7 +142,12 @@ def bootstrap(args, paths):
             + "/config/ -N "
             + str(args.depth)
         )
-        script = "sjaracne " + arg + " -o " + fname + " -S " + str(i)
+
+        if sys.platform == "linux":
+            sjaracne_exe = "sjaracne.linux"
+        elif sys.platform == "darwin":
+            sjaracne_exe = "sjaracne.osx"
+        script = sjaracne_exe + " " + arg + " -o " + fname + " -S " + str(i)
         if args.host == "LOCAL":
             script += " >> " + lname + " &"
         out_2.write(script + "\n")
@@ -152,7 +157,7 @@ def bootstrap(args, paths):
 def consensus(args, paths):
     out_3 = open(paths[3] + "03_getconsensusnetwork_" + args.project_name + ".sh", "w")
     out_3.write(
-        "getconsensusnetwork.py "
+        "get_consensus_network.py "
         + paths[0]
         + " "
         + str(args.c_threshold)
@@ -168,7 +173,7 @@ def enhanced(args, paths):
         paths[3] + "04_getenhancedconsensusnetwork_" + args.project_name + ".sh", "w"
     )
     out_4.write(
-        "getenhancedconsensusnetwork.py "
+        "get_enhanced_consensus_network.py "
         + args.expression_matrix
         + " "
         + paths[2]
@@ -350,6 +355,7 @@ def run(args):
 
 def main():
     os.environ["PATH"] += os.pathsep + os.path.dirname(os.path.realpath(__file__))
+    os.environ["PATH"] += os.pathsep + os.path.dirname(os.path.realpath(__file__)) + '/bin'
     run(sys.argv)
     print("[INFO] --> [MICA] Finished.")
 

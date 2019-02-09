@@ -1,8 +1,0 @@
->  Input file      data/BRCA100.exp
->  MI threshold    0.153257
->  MI P-value      1e-07
->  DPI tolerance   0
->  Subnetwork file data/tf.txt
->  Bootstrap No: 1
->  Source: sjaracne2
->  Output network: data/sjaracne_BRCA100_out_.final/consensus_network_3col_.txt
