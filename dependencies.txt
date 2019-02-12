@@ -1,8 +1,7 @@
 numpy==1.14.2
-argparse==1.1
-igraph==0.1.11
+argparse
+python-igraph
 scipy==1.0.1
 XlsxWriter==1.0.2
 pandas==0.22.0
-
 
