@@ -12,13 +12,30 @@ Alireza Khatamian, Evan O. Paull, Andrea Califano* & Jiyang Yu*. SJARACNe: a sca
 
 * [Python 3.6.1](https://www.python.org/downloads/)
 	* numpy==1.14.2
-	* argparse==1.1
-	* igraph==0.1.11
+	* argparse
+	* python-igraph
 	* scipy==1.0.1
 	* XlsxWriter==1.0.2
 	* pandas==0.22.0
 
 ## Install Requirements
+
+### Using conda (recommended)
+
+The recommended method of setting up the required Python environment and dependencies is to use the
+[conda](https://conda.io/en/latest/) dependency manager:
+
+```sh
+conda create -n sjaracne python=3.6.1
+conda activate aracne
+conda install --file dependencies.txt
+```
+
+For information on configuring the conda environment to setup the necessary environmental variables
+(`PYTHON_PATH` and `SJARACNE_PATH`), refer to the [conda docs](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#saving-environment-variables). 
+
+### Using pip
+
 First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install package requirements.
 </br></br>
 <code>pip install -f dependencies.txt</code>
@@ -46,7 +63,10 @@ Use the Makefile to compile the code and build your own distribution.</br>
 * <code>--run, default=False, help=Whether run the pipeline or just generate and stop.</code></br>
 * <code>--host, default=LOCAL, help=Whether to run on clusters or localhost. [LOCAL | CLUSTER].</code></br>
 
-NOTE: Setting the host option to CLUSTER will change the run option to False.
+**Notes**:
+
+1. Setting the host option to CLUSTER will change the run option to False.
+2. Absolute / relative filepaths _without_ any environmental variables (e.g. `$HOME`) must be used.
 
 ## EASY RUN
 

@@ -56,7 +56,7 @@ $(TARGET): $(OBJECTS)
 	@echo "		Linking $(TARGET)"; $(CC) $^ -o $(TARGET) $(LIB)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
-	@mkdir -p $(BUILDLIST)
+	@mkdir -p $(BUILDLIST) $(BUILDDIR)
 	@echo "Compiling $<..."; $(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 clean:
