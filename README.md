@@ -35,7 +35,8 @@ For information on configuring the conda environment to setup the necessary envi
 
 ### Using pip
 First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install package requirements.
-```pip install -f dependencies.txt```
+
+```$ pip install -f dependencies.txt```
 
 
 ### Install from source
