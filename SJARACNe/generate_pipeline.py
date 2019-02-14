@@ -143,16 +143,7 @@ def bootstrap(args, paths):
             + "/config/ -N "
             + str(args.depth)
         )
-        script = (
-            sjaracne
-            + " "
-            + arg
-            + " -o "
-            + fname
-            + " -S "
-            + str(i)
-            + " "
-        )
+        script = sjaracne + " " + arg + " -o " + fname + " -S " + str(i) + " "
         if args.host == "LOCAL":
             script += " >> " + lname + " &"
         script += "\n"
@@ -263,4 +254,3 @@ def main(args):
 
 if __name__ == "__main__":
     main(sys.argv)
-

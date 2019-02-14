@@ -9,7 +9,9 @@ import subprocess
 
 
 def setup(args):
-    parser = argparse.ArgumentParser(description="SJARACNe a scalable tool for gene network reverse engineering.")
+    parser = argparse.ArgumentParser(
+        description="SJARACNe a scalable tool for gene network reverse engineering."
+    )
     parser.add_argument("project_name", help="Project name")
     parser.add_argument(
         "expression_matrix",
@@ -355,7 +357,9 @@ def run(args):
 
 def main():
     os.environ["PATH"] += os.pathsep + os.path.dirname(os.path.realpath(__file__))
-    os.environ["PATH"] += os.pathsep + os.path.dirname(os.path.realpath(__file__)) + '/bin'
+    os.environ["PATH"] += (
+        os.pathsep + os.path.dirname(os.path.realpath(__file__)) + "/bin"
+    )
     run(sys.argv)
     print("[INFO] --> [MICA] Finished.")
 
