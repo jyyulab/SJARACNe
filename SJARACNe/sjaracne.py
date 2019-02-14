@@ -9,7 +9,7 @@ import subprocess
 
 
 def setup(args):
-    parser = argparse.ArgumentParser(description="SJARACNe package.")
+    parser = argparse.ArgumentParser(description="SJARACNe a scalable tool for gene network reverse engineering.")
     parser.add_argument("project_name", help="Project name")
     parser.add_argument(
         "expression_matrix",
@@ -25,13 +25,13 @@ def setup(args):
     parser.add_argument(
         "--c_threshold",
         type=float,
-        default=float("1e-5"),
+        default=1e-5,
         help="P-value threshold in building consensus network.",
     )
     parser.add_argument(
         "--p_threshold",
         type=float,
-        default=float("1e-7"),
+        default=1e-7,
         help="P-value threshold in building bootstrap networks.",
     )
     parser.add_argument(

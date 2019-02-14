@@ -1,127 +1,107 @@
 # SJARACNe
+SJARACNe is a scalable solution of ARACNe that dramatically improves the computational 
+performance, especially on the memory usage to allow even researchers with modest 
+computational power to generate networks from thousands of samples.
 
-## Reference
-
-Alireza Khatamian, Evan O. Paull, Andrea Califano* & Jiyang Yu*. SJARACNe: a scalable software tool for gene network reverse engineering from big data. Bioinformatics (2018). * Corresponding authors.
 
 ## Download
+```git clone https://github.com/jyyulab/SJARACNe  # Clone the repo```
 
-<code>git clone https://github.com/jyyulab/SJARACNe.git</code>
 
-## Requirements
-
+## Prerequisites
 * [Python 3.6.1](https://www.python.org/downloads/)
-	* numpy==1.14.2
-	* argparse
-	* python-igraph
-	* scipy==1.0.1
-	* XlsxWriter==1.0.2
-	* pandas==0.22.0
+	* [numpy==1.14.2](https://www.scipy.org/scipylib/download.html)
+	* [argparse==1.1](https://docs.python.org/3/library/argparse.html)
+	* [python-igraph==0.7.1](https://igraph.org/python/)
+	* [scipy==1.0.1](https://www.scipy.org/install.html)
+	* [XlsxWriter==1.0.2](https://xlsxwriter.readthedocs.io/)
+	* [pandas==0.22.0](https://pandas.pydata.org/)
 
-## Install Requirements
 
-### Using conda (recommended)
-
+## Installation
+### Using conda to create a virtual environment (recommended)
 The recommended method of setting up the required Python environment and dependencies is to use the
 [conda](https://conda.io/en/latest/) dependency manager:
 
-```sh
-conda create -n sjaracne python=3.6.1
-conda activate aracne
-conda install --file dependencies.txt
+```bash
+$ conda create -n py36 python=3.6.1
+$ conda activate py36
+$ conda install --file requirements.txt
 ```
 
 For information on configuring the conda environment to setup the necessary environmental variables
 (`PYTHON_PATH` and `SJARACNE_PATH`), refer to the [conda docs](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#saving-environment-variables). 
 
+
 ### Using pip
-
 First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install package requirements.
-</br></br>
-<code>pip install -f dependencies.txt</code>
+```pip install -f dependencies.txt```
 
-## Install SJARACNe
-The linux and OSX pre-built distribution are provided and the program will use the corresponding distribution with respect the operating system.</br>
 
-Use the Makefile to compile the code and build your own distribution.</br>
+### Install from source
+The linux and OSX pre-built distribution are provided in `SJARACNe/bin` and the program will use the corresponding 
+distribution with respect the operating system. Alternatively, you may use the Makefile to compile the code and build your own distribution.
+You can install SJARACNe directly from the source using `setup.py`:
 
-## Set Environemnt
+```bash
+$ git clone https://github.com/jyyulab/SJARACNe
+$ cd SJARACNe
+$ python setup.py install
+```
 
-<code>$export PYTHON_PATH=$(which python3)</code></br>
-<code>$export SJARACNE_PATH=$(pwd)</code></br>
 
-## Main Command
-
-<code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory]</code></br>
+## Usage
+```$ sjaracne [project_name] [expression_matrix] [hub_genes] [output_directory]```
 
 ### Options
-
-* <code>--bootstrap, default=100, Number of bootstrap networks.</code></br>
-* <code>--c_threshold, default=1e-5, P-value threshold in building consensus network.</code></br>
-* <code>--p_threshold, default=1e-7, P-value threshold in building bootstrap netwroks.</code></br>
-* <code>--depth, default=40, help=Maximum partitioning depth.</code></br>
-* <code>--run, default=False, help=Whether run the pipeline or just generate and stop.</code></br>
-* <code>--host, default=LOCAL, help=Whether to run on clusters or localhost. [LOCAL | CLUSTER].</code></br>
+* ```--bootstrap, default=100, Number of bootstrap networks.```
+* ```--c_threshold, default=1e-5, P-value threshold in building consensus network.```
+* ```--p_threshold, default=1e-7, P-value threshold in building bootstrap netwroks.```
+* ```--depth, default=40, help=Maximum partitioning depth.```
+* ```--run, default=False, help=Whether run the pipeline or just generate and stop.```
+* ```--host, default=LOCAL, help=Whether to run on clusters or localhost. [LOCAL | LSF].```
 
 **Notes**:
 
-1. Setting the host option to CLUSTER will change the run option to False.
+1. Setting the host option to LSF will change the run option to False.
 2. Absolute / relative filepaths _without_ any environmental variables (e.g. `$HOME`) must be used.
 
+
 ## EASY RUN
+```$ sjaracne [project_name] [expression_matrix] [hub_genes] [output_directory]```
 
-<code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run True</code></br>
+The above command will create 4 directories under the provided out_directory parameter as follows:
 
-<p>The above command will create 4 directories under the provided out_directory parameter as follows:</p></br>
+* ```[out_directory]/SJARACNE_[project_name]/SJARACNE_log```
+* ```[out_directory]/SJARACNE_[project_name]/SJARACNE_out.final```
+* ```[out_directory]/SJARACNE_[project_name]/SJARACNE_scripts```
 
-* <code>[out_directory]/sjaracne_[project_name]\_out\_</code></br>
-* <code>[out_directory]/sjaracne_[project_name]\_log\_</code></br>
-* <code>[out_directory]/sjaracne_[project_name]\_out\_.final</code></br>
-* <code>[out_directory]/sjaracne_[project_name]\_scripts\_</code></br></br>
+There will be shell script files corresponding to the provided input files in the scripts 
+directory in the following order:
 
-<p>There will be shell script files corresponding to the provided input files in the scripts directory in the following order:</p></br>
+* ```00_cleanup_[project_name].sh</code>```
+* ```00_pipeline_[project_name].sh</code>```
+* ```01_prepare_[project_name].sh```
+* ```02_bootstrap_[project_name].sh```
+* ```03_getconsensusnetwork_[project_name].sh```
+* ```04_getenhancedconsensusnetwork_[project_name].sh```
 
-* <code>00_cleanup_[project_name].sh</code></br>
-* <code>00_pipeline_[project_name].sh</code></br>
-* <code>01_prepare_[project_name].sh</code></br>
-* <code>02_bootstrap_[project_name].sh</code></br>
-* <code>03_getconsensusnetwork_[project_name].sh</code></br>
-* <code>04_getenhancedconsensusnetwork_[project_name].sh</code></br>
+The command will run scripts 02-04 automatically and generate the final results.
 
-<p>The command will run scripts 02-04 automatically and generate the final results.</p></br>
-
-<p>To generate only scripts and stop, run the command as follows:</p></br>
-<code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory]</code></br>
-
-## Running on Single Machine (Linux/OSX)
-<code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run True</code></br>
-
-<p>OR</p>
-
-<code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run False</code></br>
-<code>$sh [out_directory]/sjaracne_[project_name]_scripts_/00_pipeline_[project_name].sh</code>
-
-## Running on Clusters
-
-<code>$python3 generate_pipeline.py [project_name] [expression_matrix] [hub_genes] [out_directory] --run False --host CLUSTER</code></br>
-<p>To run the pipeline on a cluster, use the script files under the scripts directory and submit the scripts 02 to 04 to the clusters.</p>
 
 ### Example of Running the Scripts on IBM LSF Cluster
-<p>Run the following command for each script file, wait until the jobs are done, and do the same thing for the next script file:<p>
-<code>cat [script_file] | while read line; do bsub $line; done</code>
+```$ sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/sig.txt ./test_data/outputs/ --host LSF```
 
-## Example of Running Signaling Network on a Single Machine
+## Example of Running Signaling Network on a Single Machine (Linux/OSX)
+```$ sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/tf.txt ./test_data/outputs/```
 
-<code>$export PYTHON_PATH=$(which python3)</code></br>
-<code>$export SJARACNE_PATH=$(pwd)</code></br>
-<code>$python3 generate_pipeline.py SIG data/BRCA100.exp data/sig.txt data/output/ --run True</code></br>
-
-## Example of Running Transcription Factor Network on a Single Machine
-
-<code>$export PYTHON_PATH=$(which python3)</code></br>
-<code>$export SJARACNE_PATH=$(pwd)</code></br>
-<code>$python3 generate_pipeline.py TF data/BRCA100.exp data/tf.txt data/output/ --run True</code></br>
+## Example of Running Transcription Factor Network on a Single Machine (Linux/OSX)
+```$sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/tf.txt ./test_data/outputs/```
 
 ## Expected Output
-<p>Expected output for the example data with 3 bootstraps is available under data/output/ directory.</p>
+Expected output for the example data with 100 bootstraps is available under 
+```test_data/outputs/SJARACNE_TF/SJARACNE_out.final``` directory.
 
+
+## Reference
+Alireza Khatamian, Evan O. Paull, Andrea Califano* & Jiyang Yu*. SJARACNe: a scalable software tool for gene network reverse engineering from big data. Bioinformatics (2018). * Corresponding authors.
