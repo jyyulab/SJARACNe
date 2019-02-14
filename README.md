@@ -29,14 +29,10 @@ $ conda activate py36
 $ conda install --file requirements.txt
 ```
 
-For information on configuring the conda environment to setup the necessary environmental variables
-(`PYTHON_PATH` and `SJARACNE_PATH`), refer to the [conda docs](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#saving-environment-variables). 
-
-
 ### Using pip
 First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install package requirements.
 
-```$ pip install -f dependencies.txt```
+```$ pip install -f requirements.txt```
 
 
 ### Install from source
@@ -97,7 +93,7 @@ The command will run scripts 02-04 automatically and generate the final results.
 ```$ sjaracne SIG ./test_data/inputs/BRCA100.exp ./test_data/inputs/sig.txt ./test_data/outputs/```
 
 ### Example of Running Transcription Factor Network on a Single Machine (Linux/OSX)
-```$sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/tf.txt ./test_data/outputs/```
+```$ sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/tf.txt ./test_data/outputs/```
 
 ### Expected Output
 Expected output for the example data with 100 bootstraps is available under 
