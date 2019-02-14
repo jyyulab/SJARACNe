@@ -91,10 +91,10 @@ The command will run scripts 02-04 automatically and generate the final results.
 
 
 ### Example of Running the Scripts on IBM LSF Cluster
-```$ sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/sig.txt ./test_data/outputs/ --host LSF```
+```$ sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/tf.txt ./test_data/outputs/ --host LSF```
 
 ### Example of Running Signaling Network on a Single Machine (Linux/OSX)
-```$ sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/tf.txt ./test_data/outputs/```
+```$ sjaracne SIG ./test_data/inputs/BRCA100.exp ./test_data/inputs/sig.txt ./test_data/outputs/```
 
 ### Example of Running Transcription Factor Network on a Single Machine (Linux/OSX)
 ```$sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/tf.txt ./test_data/outputs/```
