@@ -85,6 +85,9 @@ with closing(tarfile.open(name + ".tar.gz", "w:gz")) as tar:
 	for f in os.listdir(name):
 	    tar.add(os.path.join(name, f))
 
+# Return to starting directory
+os.chdir(current_path)
+
 # Writing out the summary of all bootstrap files into bootstrap_info.txt file
 info_file = open( os.path.join(output_dir, "bootstrap_info_.txt"),  "w")
 
@@ -122,24 +125,24 @@ header += "source\ttarget\tMI\n"
 consensus_network.write(header)
 current_gene = "none"
 
-for key in sorted(total_support.keys()):  # Iterating on all edges in a sorted fashion
-    gene1 = key.split("--")[
-        0
-    ]  # Extracting first gene involving in an edge from the key (edge)
-    gene2 = key.split("--")[
-        1
-    ]  # Extracting second gene involving in an edge from the key (edge)
-    z = (
-        float(total_support[key] - mu) / float(sigma) if sigma != 0 else 100
-    )  # Computing the z score of normal distribution
-    pval = statistics.uprob(
-        z
-    )  # Computing p-value corresponding to the z score --> Implemented in statistics.py module inspired by Statistics::Distributions::uprob function in perl
-    if (
-        pval < p_threshold
-    ):  # Decision making if the edge has enough support or not and therefore if it has to be remained or removed
-        mi = "{0:.4f}".format(
-            float(total_mi[key]) / float(total_support[key])
-        )  # Computing MI corresponding to an edge remaining in the network
+# Iterate over all edges in a sorted fashion
+for key in sorted(total_support.keys()):
+    # Extract first two gene involving an edge from the key (edge)
+    gene1 = key.split("--")[0]
+    gene2 = key.split("--")[1]
+
+    # Compute the z score of normal distribution
+    z = float(total_support[key] - mu) / float(sigma) if sigma != 0 else 100
+
+    # Compute p-value corresponding to the z score --> 
+    # Implemented in statistics.py module inspired by Statistics::Distributions::uprob function in
+    # perl
+    pval = statistics.uprob(z)  
+
+    # Decision making if the edge has enough support or not and therefore if it has to be remained or removed
+    if pval < p_threshold:  
+        # Computing MI corresponding to an edge remaining in the network
+        mi = "{0:.4f}".format(float(total_mi[key]) / float(total_support[key]))  
         consensus_network.write(gene1 + "\t" + gene2 + "\t" + mi + "\n")
+
 consensus_network.close()
