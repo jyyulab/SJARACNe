@@ -1,0 +1,41 @@
+Sender: LSF System <lsfadmin@nodecn128>
+Subject: Job 72967021[1]: <TF_SJARACNE_Enhanced[1-1]> in cluster <hpcf_research_cluster> Done
+
+Job <TF_SJARACNE_Enhanced[1-1]> was submitted from host <nodecn125> by user <lding> in cluster <hpcf_research_cluster> at Sat Feb  9 22:17:28 2019.
+Job was executed on host(s) <nodecn128>, in queue <compbio>, as user <lding> in cluster <hpcf_research_cluster> at Sat Feb  9 22:17:28 2019.
+</home/lding> was used as the home directory.
+</research/rgs01/home/clusterHome/lding/Git/SJARACNe> was used as the working directory.
+Started at Sat Feb  9 22:17:28 2019.
+Terminated at Sat Feb  9 22:42:43 2019.
+Results reported at Sat Feb  9 22:42:43 2019.
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+_phoenix_sub_line_from_cmdfile /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/outputs/SJARACNE_TF/SJARACNE_scripts/04_getenhancedconsensusnetwork_TF.sh
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   1504.41 sec.
+    Max Memory :                                 1971 MB
+    Average Memory :                             752.52 MB
+    Total Requested Memory :                     2000.00 MB
+    Delta Memory :                               29.00 MB
+    Max Swap :                                   3367 MB
+    Max Processes :                              4
+    Max Threads :                                24
+    Run time :                                   1515 sec.
+    Turnaround time :                            1515 sec.
+
+The output (if any) follows:
+
+
+
+PS:
+
+Read file </research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/outputs/SJARACNE_TF/SJARACNE_log/TF_SJARACNE_Enhanced.72967021.1.err> for stderr output of this job.
+
