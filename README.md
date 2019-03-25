@@ -25,7 +25,7 @@ The recommended method of setting up the required Python environment and depende
 
 ```bash
 $ conda create -n py36 python=3.6.1
-$ conda activate py36
+$ source activate py36
 $ conda install --file requirements.txt
 ```
 
