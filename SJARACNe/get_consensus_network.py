@@ -25,10 +25,15 @@ run_num = 0
 mu = 0
 sigma = 0
 
+# Command-line arguments
+adjmat_dir   = sys.argv[1]
+p_thresh_arg = sys.argv[2]
+output_dir   = sys.argv[3]
+
 # Processing all bootstrap networks, summarizing them into corresponding variables
-for adj_file in os.listdir(sys.argv[1]):
+for adj_file in os.listdir(adjmat_dir):
     total_edge.append(0)
-    with open(sys.argv[1] + adj_file, "r") as f:  # Opening each bootstrap file
+    with open(adjmat_dir + adj_file, "r") as f:  # Opening each bootstrap file
         for line in f:
             if line[0] == ">" and run_num == 0:
                 parameters += line
@@ -65,26 +70,27 @@ for adj_file in os.listdir(sys.argv[1]):
     run_num += 1  # Increment the bootstrap file index
 
 # Network name
-path_tokens = sys.argv[1].split("/")
-name = path_tokens[len(path_tokens) - 2]
-path = "/".join(path_tokens[0 : len(path_tokens) - 2]) + "/"
+name = os.path.basename(os.path.dirname(adjmat_dir))
 
 # Archiving the bootstrap networks
 current_path = os.getcwd()
-os.chdir(path)
+
+# Parent directory of adjacency matrix output
+path = os.path.dirname(os.path.dirname(adjmat_dir))
+
+# If we aren't already in the parent directory of the adjacency matrix output dir, change to it
+if path is not "":
+    os.chdir(path)
 with closing(tarfile.open(name + ".tar.gz", "w:gz")) as tar:
-    for f in os.listdir(name):
-        tar.add(name + "/" + f)
+	for f in os.listdir(name):
+	    tar.add(os.path.join(name, f))
+
+# Return to starting directory
 os.chdir(current_path)
-shutil.rmtree(sys.argv[1])
 
 # Writing out the summary of all bootstrap files into bootstrap_info.txt file
-info_file = open(
-    sys.argv[3] + "bootstrap_info_.txt"
-    if sys.argv[3].endswith("/")
-    else sys.argv[3] + "/bootstrap_info_.txt",
-    "w",
-)
+info_file = open( os.path.join(output_dir, "bootstrap_info_.txt"),  "w")
+
 info_file.write("Total edge tested: " + str(len(total_support)) + "\n")
 info_file.write(
     "Bonferroni corrected (0.05) alpha: " + str(0.05 / len(total_support)) + "\n"
@@ -102,58 +108,41 @@ info_file.write("sigma: " + str(sigma) + "\n")
 
 # Setting p_threshold if given to the given value, if not to Bonferroni corrected value
 p_threshold = 0.05 / len(total_support)
-if sys.argv[2] != None:
-    p_threshold = float(sys.argv[2])
+if p_thresh_arg != None:
+    p_threshold = float(p_thresh_arg)
 
 # Writing out the parameters that the bootstrap networks are constructed with plus other parameters that is used to create consensus network
-parameter_file = open(
-    sys.argv[3] + "parameter_info_.txt"
-    if sys.argv[3].endswith("/")
-    else sys.argv[3] + "/parameter_info_.txt",
-    "w",
-)
+parameter_file = open(os.path.join(output_dir, "parameter_info_.txt"), "w")
 parameters += ">  Bootstrap No: " + str(run_num) + "\n"
 parameters += ">  Source: sjaracne2\n"
-parameters += (
-    ">  Output network: "
-    + (
-        sys.argv[3] + "consensus_network_3col_.txt"
-        if sys.argv[3].endswith("/")
-        else sys.argv[3] + "/consensus_network_3col_.txt"
-    )
-    + "\n"
-)
+parameters += ">  Output network: " + os.path.join(output_dir, "consensus_network_3col_.txt") + "\n"
 parameter_file.write(parameters)
 
 # Writing out the consensus network preserving edges with statistically significant support
-consensus_network = open(
-    sys.argv[3] + "consensus_network_3col_.txt"
-    if sys.argv[3].endswith("/")
-    else sys.argv[3] + "/consensus_network_3col_.txt",
-    "w",
-)
+consensus_network = open(os.path.join(output_dir, "consensus_network_3col_.txt"), "w")
+
 header += "source\ttarget\tMI\n"
 consensus_network.write(header)
 current_gene = "none"
 
-for key in sorted(total_support.keys()):  # Iterating on all edges in a sorted fashion
-    gene1 = key.split("--")[
-        0
-    ]  # Extracting first gene involving in an edge from the key (edge)
-    gene2 = key.split("--")[
-        1
-    ]  # Extracting second gene involving in an edge from the key (edge)
-    z = (
-        float(total_support[key] - mu) / float(sigma) if sigma != 0 else 100
-    )  # Computing the z score of normal distribution
-    pval = statistics.uprob(
-        z
-    )  # Computing p-value corresponding to the z score --> Implemented in statistics.py module inspired by Statistics::Distributions::uprob function in perl
-    if (
-        pval < p_threshold
-    ):  # Decision making if the edge has enough support or not and therefore if it has to be remained or removed
-        mi = "{0:.4f}".format(
-            float(total_mi[key]) / float(total_support[key])
-        )  # Computing MI corresponding to an edge remaining in the network
+# Iterate over all edges in a sorted fashion
+for key in sorted(total_support.keys()):
+    # Extract first two gene involving an edge from the key (edge)
+    gene1 = key.split("--")[0]
+    gene2 = key.split("--")[1]
+
+    # Compute the z score of normal distribution
+    z = float(total_support[key] - mu) / float(sigma) if sigma != 0 else 100
+
+    # Compute p-value corresponding to the z score --> 
+    # Implemented in statistics.py module inspired by Statistics::Distributions::uprob function in
+    # perl
+    pval = statistics.uprob(z)  
+
+    # Decision making if the edge has enough support or not and therefore if it has to be remained or removed
+    if pval < p_threshold:  
+        # Computing MI corresponding to an edge remaining in the network
+        mi = "{0:.4f}".format(float(total_mi[key]) / float(total_support[key]))  
         consensus_network.write(gene1 + "\t" + gene2 + "\t" + mi + "\n")
+
 consensus_network.close()
