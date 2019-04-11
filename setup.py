@@ -15,7 +15,7 @@ setup(
     install_requires=[
         "pandas >= 0.22.0",
         "numpy >= 1.14.2",
-        "python-igraph == 0.7.1",
+        "python-igraph == 0.7.1.post7",
         "scipy == 1.0.1",
         "XlsxWriter == 1.0.2",
     ],
