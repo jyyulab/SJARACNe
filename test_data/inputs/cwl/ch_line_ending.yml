@@ -1,0 +1,3 @@
+input_file:
+  class: File
+  path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/inputs/BRCA100.exp

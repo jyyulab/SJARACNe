@@ -19,9 +19,9 @@ TARGETDIR := bin
 
 # Targets
 ifeq ($(UNAME_S), Darwin)
-	EXECUTABLE := sjaracne.osx
+	EXECUTABLE := sjaracne.exe
 else
-	EXECUTABLE := sjaracne
+	EXECUTABLE := sjaracne.exe
 endif
 TARGET := $(TARGETDIR)/$(EXECUTABLE)
 
@@ -67,4 +67,3 @@ install:
 
 distclean:
 	@echo "Removing $(EXECUTABLE)"; rm $(INSTALLBINDIR)/$(EXECUTABLE)
-

@@ -1,0 +1,8 @@
+adjmat_dir:
+  class: Directory
+  path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/outputs/local/SJARACNE_TF/SJARACNE_out/
+exp_mat:
+  class: File
+  path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/inputs/BRCA100.exp
+p_thresh_arg: 1e-05
+output_dir: SJARACNE_out.final
