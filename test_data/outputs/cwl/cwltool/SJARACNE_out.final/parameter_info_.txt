@@ -1,8 +1,8 @@
->  Input file      /research/rgs01/scratch_lsf/lsftmpdir/nodem140/79441127.tmpdir/tmpbzjz8onq/stg5ee83c5b-999b-4faf-8131-2d93cc2c6ab8/BRCA100.exp
+>  Input file      /research/rgs01/scratch_lsf/lsftmpdir/nodem181/79477401.tmpdir/tmp5ymvzw2k/stg1e11540c-a714-491a-aea6-525de2547c74/BRCA100.exp
 >  MI threshold    0.153257
 >  MI P-value      1e-07
 >  DPI tolerance   0
->  Subnetwork file /research/rgs01/scratch_lsf/lsftmpdir/nodem140/79441127.tmpdir/tmpbzjz8onq/stgd298014b-ce5d-4925-822d-309a65561dcc/tf.txt
+>  Subnetwork file /research/rgs01/scratch_lsf/lsftmpdir/nodem181/79477401.tmpdir/tmp5ymvzw2k/stg7c23cdaa-9c5b-4375-aed0-876728e21d28/tf.txt
 >  Bootstrap No: 2
 >  Source: sjaracne2
 >  Output network: SJARACNE_out.final/consensus_network_3col_.txt

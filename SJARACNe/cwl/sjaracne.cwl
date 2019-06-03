@@ -51,8 +51,8 @@ inputs:
       position: 7
       prefix: -r
     doc: Bootstrap sample number
-  aracne_home:
-    type: string
+  aracne_config_dir:
+    type: Directory
     inputBinding:
       position: 8
       prefix: -H

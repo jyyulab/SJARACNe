@@ -1,17 +1,14 @@
 exp_file:
   class: File
-  path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/inputs/BRCA100.exp
+  path: ./test_data/inputs/BRCA100.exp
 probe_file:
   class: File
-  path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/inputs/tf.txt
+  path: ./test_data/inputs/tf.txt
 p_value_consensus: 1e-5
 p_value_bootstrap: 1e-7
 depth: 40
-aracne_home: /home/lding/Git/SJARACNe/SJARACNe/config/
-adjmat_file_names:
-  - TF_run_001.adj
-  - TF_run_002.adj
-seeds:
-  - 1
-  - 2
+aracne_config_dir:
+  class: Directory
+  path: ./SJARACNe/config/
+bootstrap_num: 2
 final_out_dir_name: SJARACNE_out.final

@@ -1,2 +1,5 @@
 include SJARACNe/bin/*
 include SJARACNe/config/*.txt
+include SJARACNe/cwl/*
+include SJARACNe/src/*
+include SJARACNe/Makefile

@@ -30,7 +30,7 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    logging.basicConfig(level=logging.WARNING)
+    logging.basicConfig(level=logging.INFO)
     logging.info('Create an initial consensus network ...')
     network = create_consensus_network(args.adjmat_dir, args.p_value, args.out_dir)
     logging.info('Done')
@@ -131,8 +131,9 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
         # Iterate over all edges in a sorted fashion
         for key in sorted(total_edge_number.keys()):
             # Extract first two gene involving an edge from the key (edge)
-            gene1 = key.split('--')[0]
-            gene2 = key.split('--')[1]
+            tks = key.split('--')
+            gene1 = tks[0]
+            gene2 = tks[1]
 
             # Compute the z score of normal distribution
             z = float(total_edge_number[key] - mu) / float(sigma) if sigma != 0 else 100
