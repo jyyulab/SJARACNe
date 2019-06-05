@@ -12,7 +12,7 @@ import json
 
 
 def main():
-    head_description = '''SJARACNe a scalable tool for gene network reverse engineering.'''
+    head_description = '''SJARACNe is a scalable tool for gene network reverse engineering.'''
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description=head_description)
 
