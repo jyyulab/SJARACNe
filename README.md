@@ -35,69 +35,41 @@ First install [Python 3.6.1](https://www.python.org/downloads/) and then use the
 
 
 ### Install from source
-The linux and OSX pre-built distribution are provided in `SJARACNe/bin` and the program will use the corresponding 
-distribution with respect the operating system. Alternatively, you may use the Makefile to compile the code and build your own distribution.
-You can install SJARACNe directly from the source using `setup.py`:
-
 ```bash
 $ git clone https://github.com/jyyulab/SJARACNe
 $ cd SJARACNe
 $ python setup.py install
 ```
 
-
 ## Usage
-```$ sjaracne [project_name] [expression_matrix] [hub_genes] [output_directory]```
+```$ sjaracne 
+usage: sjaracne [-h] {local,lsf} ...
 
-### Options
-* ```--bootstrap, default=100, Number of bootstrap networks.```
-* ```--c_threshold, default=1e-5, P-value threshold in building consensus network.```
-* ```--p_threshold, default=1e-7, P-value threshold in building bootstrap netwroks.```
-* ```--depth, default=40, help=Maximum partitioning depth.```
-* ```--run, default=False, help=Whether run the pipeline or just generate and stop.```
-* ```--host, default=LOCAL, help=Whether to run on clusters or localhost. [LOCAL | LSF].```
+SJARACNe is a scalable tool for gene network reverse engineering.
 
-### Notes:
-1. Setting the host option to LSF will change the run option to False.
-2. Absolute / relative filepaths _without_ any environmental variables (e.g. `$HOME`) must be used.
+optional arguments:
+  -h, --help   show this help message and exit
 
-
-## Examples
-### EASY RUN
-```$ sjaracne [project_name] [expression_matrix] [hub_genes] [output_directory]```
-
-The above command will create 4 directories under the provided out_directory parameter as follows:
-
-* ```[out_directory]/SJARACNE_[project_name]/SJARACNE_log```
-* ```[out_directory]/SJARACNE_[project_name]/SJARACNE_out.final```
-* ```[out_directory]/SJARACNE_[project_name]/SJARACNE_scripts```
-
-There will be shell script files corresponding to the provided input files in the scripts 
-directory in the following order:
-
-* ```00_cleanup_[project_name].sh</code>```
-* ```00_pipeline_[project_name].sh</code>```
-* ```01_prepare_[project_name].sh```
-* ```02_bootstrap_[project_name].sh```
-* ```03_getconsensusnetwork_[project_name].sh```
-* ```04_getenhancedconsensusnetwork_[project_name].sh```
-
-The command will run scripts 02-04 automatically and generate the final results.
+Subcommands:
+  {local,lsf}  platforms
+    local      run cwltool in a local workstation
+    lsf        run cwlexec as in a IBM LSf cluster
+```
+```sjaracne``` workflow is implemented with [CWL](https://www.commonwl.org/). It should run in multiple
+ computing platforms. We have tested it locally using [cwltool](https://github.com/common-workflow-language/cwltool) 
+ and on an IBM LSF cluster using [cwlexec](https://github.com/IBMSpectrumComputing/cwlexec). 
+ For the convenience, a python wrapper is developed for you to choose computing platform using ```subcommand```.
+ Please refer to link? for the more information, e.g., inputs and outputs.
 
 
-### Example of Running the Scripts on IBM LSF Cluster
-```$ sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/tf.txt ./test_data/outputs/ --host LSF```
+## Examples to create a transcription factor network
+### Running on an IBM LSF cluster
+```sjaracne local -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final```
 
-### Example of Running Signaling Network on a Single Machine (Linux/OSX)
-```$ sjaracne SIG ./test_data/inputs/BRCA100.exp ./test_data/inputs/sig.txt ./test_data/outputs/```
-
-### Example of Running Transcription Factor Network on a Single Machine (Linux/OSX)
-```$ sjaracne TF ./test_data/inputs/BRCA100.exp ./test_data/inputs/tf.txt ./test_data/outputs/```
-
-### Expected Output
-Expected output for the example data with 100 bootstraps is available under 
-```test_data/outputs/SJARACNE_TF/SJARACNE_out.final``` directory.
-
+### Running on a single machine (Linux/OSX) 
+```sjaracne lsf -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final -q [queue_name]```
 
 ## Reference
-Alireza Khatamian, Evan O. Paull, Andrea Califano* & Jiyang Yu*. SJARACNe: a scalable software tool for gene network reverse engineering from big data. Bioinformatics (2018). * Corresponding authors.
+Alireza Khatamian, Evan O. Paull, Andrea Califano* & Jiyang Yu*. SJARACNe: a scalable 
+software tool for gene network reverse engineering from big data. Bioinformatics (2018). 
+* Corresponding authors.
