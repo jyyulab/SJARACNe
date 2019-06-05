@@ -75,9 +75,9 @@ def main():
                        'depth: {}\n' \
                        'aracne_config_dir:\n  class: Directory\n  path: {}\n' \
                        'bootstrap_num: {}\n' \
-                       'final_out_dir_name: {}'.format(args.exp_file, args.hub_genes, args.p_value_consensus,
-                                                       args.p_value_bootstrap, args.depth, config_dir,
-                                                       args.bootstrap_num, output_dir_name)
+                       'final_out_dir_name: {}'.format(os.path.abspath(args.exp_file), os.path.abspath(args.hub_genes),
+                                                       args.p_value_consensus, args.p_value_bootstrap, args.depth,
+                                                       config_dir, args.bootstrap_num, output_dir_name)
             logging.info(contents)
             fp_yml.write(contents)
             fp_yml.flush()
