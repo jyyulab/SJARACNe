@@ -11,8 +11,7 @@ computational power to generate networks from thousands of samples.
 ## Prerequisites
 * [Python 3.6.1](https://www.python.org/downloads/)
 	* [numpy==1.14.2](https://www.scipy.org/scipylib/download.html)
-	* [argparse==1.1](https://docs.python.org/3/library/argparse.html)
-	* [python-igraph==0.7.1](https://igraph.org/python/)
+	* [python-igraph==0.7.1.post6](https://igraph.org/python/)
 	* [scipy==1.0.1](https://www.scipy.org/install.html)
 	* [XlsxWriter==1.0.2](https://xlsxwriter.readthedocs.io/)
 	* [pandas==0.22.0](https://pandas.pydata.org/)
