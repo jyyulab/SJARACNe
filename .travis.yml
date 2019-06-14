@@ -5,8 +5,7 @@ python:
 install:
   - pip install -r requirements.txt
 
-script: ./tests/test_ch_line_ending.py
-script: ./tests/test_create_consensus_network.py
+script: pytest -m tests -v
     
 #blocklist
 branches:
@@ -18,7 +17,6 @@ branches:
 branches:
   only:
   - cwl
-
 
 notifications:
   email: false
