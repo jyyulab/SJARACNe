@@ -1,0 +1,13 @@
+language: python
+
+#blocklist
+branches:
+  except:
+  - develop
+  - SJARACNE-Internal-legacy
+  - master
+
+#safelist
+branches:
+  only:
+  - cwl
