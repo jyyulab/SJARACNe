@@ -26,7 +26,7 @@ class TestConsensusNetwork(unittest.TestCase):
 
     def test_parameter_info(self):  
         #delete last line of parameter info, as it will not match with answer key
-        with open('./tests/test_answers/parameter_info_.txt', 'r') as info:
+        with open('./test_answers/parameter_info_.txt', 'r') as info:
             lines = info.readlines()
             lines = lines[:-1]
             info.close()
