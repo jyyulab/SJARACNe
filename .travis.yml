@@ -5,13 +5,9 @@ python:
 install:
   - pip install -r requirements.txt
 
-jobs:
-  include:
-    - stage: "test"
-    script: ./tests/test_ch_line_ending.py
-    script: ./tests/test_create_consensus_network.py
+script: ./tests/test_ch_line_ending.py
+script: ./tests/test_create_consensus_network.py
     
-
 #blocklist
 branches:
   except:
