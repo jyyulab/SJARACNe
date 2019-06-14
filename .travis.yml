@@ -5,7 +5,7 @@ python:
 install:
   - pip install -r requirements.txt
 
-script: pytest tests
+script: pytest -m tests -v
     
 #blocklist
 branches:
@@ -17,7 +17,6 @@ branches:
 branches:
   only:
   - cwl
-
 
 notifications:
   email: false
