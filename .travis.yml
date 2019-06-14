@@ -1,13 +1,23 @@
 language: python
 
+jobs:
+  include:
+    - stage: "test"
+    script: ./tests/test_ch_line_ending.py
+    script: ./tests/test_create_consensus_network.py
+    
+
 #blocklist
 branches:
   except:
   - develop
   - SJARACNE-Internal-legacy
   - master
-
 #safelist
 branches:
   only:
   - cwl
+
+
+notifications:
+  email: false
