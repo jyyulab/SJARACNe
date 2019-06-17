@@ -64,6 +64,8 @@ def main():
     else:
         config_dir = default_config_path
 
+    if not os.path.isdir(args.output_dir):
+        os.mkdir(args.output_dir)
     output_dir_name = os.path.basename(args.output_dir)
     with tempfile.TemporaryDirectory() as tmpdirname:
         with open(pathlib.PurePath(tmpdirname).joinpath('sjaracne_workflow.yml'), 'w') as fp_yml:
