@@ -15,9 +15,8 @@ setup(
     install_requires=[
         "pandas >= 0.22.0",
         "numpy >= 1.14.2",
-        # "python-igraph == 0.7.1.post6",
         "scipy == 1.0.1",
-        "XlsxWriter == 1.0.2",
+        "cwltool == 1.0",
     ],
     python_requires="==3.6.1",
     packages=find_packages(exclude=["contrib", "docs", "tests"]),

@@ -77,7 +77,7 @@ input parameters and bootstrap parameters respectively.
 ```sjaracne local -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final```
 
 ### Running on a single machine (Linux/OSX) 
-```sjaracne lsf -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final -q [queue_name]```
+```sjaracne lsf -j ./SJARACNe/config/config_cwlexec.json -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final```
 
 ## Reference
 Alireza Khatamian, Evan O. Paull, Andrea Califano* & Jiyang Yu*. SJARACNe: a scalable 

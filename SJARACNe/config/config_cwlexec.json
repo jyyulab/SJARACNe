@@ -1,0 +1,28 @@
+{
+    "queue": "compbio",
+    "rerunnable": true,
+    "project": "sjaracne",
+    "steps": {
+        "step1": {
+            "res_req": "rusage[mem=100MB]"
+        },
+        "step2": {
+            "res_req": "rusage[mem=100MB]"
+        },
+        "step3": {
+            "res_req": "rusage[mem=100MB]"
+        },
+        "step4": {
+            "res_req": "rusage[mem=100MB]"
+        },
+        "step5": {
+            "res_req": "rusage[mem=20000MB]"
+        },
+        "step6": {
+            "res_req": "rusage[mem=256MB]"
+        },
+        "step7": {
+            "res_req": "rusage[mem=1024MB]"
+        }
+    }
+}
