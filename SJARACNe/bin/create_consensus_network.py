@@ -10,9 +10,6 @@ import pathlib
 import re
 from scipy import stats
 import pandas as pd
-# import xlsxwriter
-# from contextlib import closing
-# import igraph
 
 
 def main():
@@ -180,10 +177,6 @@ def create_enhanced_consensus_network(exp_mat, network, out_dir, subnet=None):
                 subnet_list.append(_id.split("\n")[0].strip())
 
     exp = pd.read_csv(exp_mat, sep="\t", index_col=0)
-    # out_xlsx = xlsxwriter.Workbook(pathlib.PurePath(out_dir).joinpath(out_file_name + ".xlsx"))
-    # out_xlsx_sheet = out_xlsx.add_worksheet()
-    # row_index = 0
-    # out_xlsx_sheet.write_row(row_index, 0, header)
 
     exp_dict = dict()
     with open(network, 'r') as fnet:
@@ -225,18 +218,12 @@ def create_enhanced_consensus_network(exp_mat, network, out_dir, subnet=None):
                        "{0:.4f}".format(rho), "{0:.4f}".format(p))
                 fout.write('\t'.join(row) + '\n')
 
-                # out_xlsx_sheet.write_row(row_index, 0, row)
-                # row_index += 1
-
                 if out_subnet is not None:
                     if gene_symbol1 in subnet_list or gene_symbol2 in subnet_list:
                         out_subnet.write('\t'.join(row) + '\n')
-    # out_xlsx.close()
 
     if out_subnet is not None:
         out_subnet.close()
-    # graph = igraph.Graph.Read_Ncol(network)
-    # graph.write_graphml(pathlib.PurePath(out_dir).joinpath(out_file_name + ".graphml"))
 
 
 def uprob(n):
