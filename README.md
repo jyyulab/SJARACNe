@@ -1,7 +1,8 @@
 # SJARACNe
 SJARACNe is a scalable solution of ARACNe that dramatically improves the computational 
 performance, especially on the memory usage to allow even researchers with modest 
-computational power to generate networks from thousands of samples.
+computational power to generate networks from thousands of samples. The algorithm uses adaptive partitioning mutual information to calculate the
+correlation between all pairs of genes to reconstruct the regulatory network.
 
 
 ## Download
@@ -11,9 +12,7 @@ computational power to generate networks from thousands of samples.
 ## Prerequisites
 * [Python 3.6.1](https://www.python.org/downloads/)
 	* [numpy==1.14.2](https://www.scipy.org/scipylib/download.html)
-	* [python-igraph==0.7.1.post6](https://igraph.org/python/)
 	* [scipy==1.0.1](https://www.scipy.org/install.html)
-	* [XlsxWriter==1.0.2](https://xlsxwriter.readthedocs.io/)
 	* [pandas==0.22.0](https://pandas.pydata.org/)
 
 
@@ -55,12 +54,23 @@ Subcommands:
     local      run cwltool in a local workstation
     lsf        run cwlexec as in a IBM LSf cluster
 ```
-```sjaracne``` workflow is implemented with [CWL](https://www.commonwl.org/). It should run in multiple
+```sjaracne``` workflow is implemented with [CWL](https://www.commonwl.org/). It supports multiple
  computing platforms. We have tested it locally using [cwltool](https://github.com/common-workflow-language/cwltool) 
  and on an IBM LSF cluster using [cwlexec](https://github.com/IBMSpectrumComputing/cwlexec). 
  For the convenience, a python wrapper is developed for you to choose computing platform using ```subcommand```.
- Please refer to link? for the more information, e.g., inputs and outputs.
 
+### Inputs
+The main input for SJARACNe is a tab-separated genes/protein by cells/samples expression matrix
+with the first two columns being ID and symbol. The second required input file is the list of
+significant genes/proteins IDs to be considered as hubs in the reconstructed network. An output directory is required
+for storing output files. Additional parameters (e.g., LSF queue) for running on different platforms are required. 
+Those are available in the helping information of the corresponding subcommands, e.g., ```sjaracne lsf -h```.
+
+### Outputs
+The main output of SJARACNe is a network file, which is a tab delimited text file with the following columns: source,
+target, mutual information, Pearson and Spearman correlations coefficients, regression line slope and p-value. SJARACNe
+also outputs two meta information files: parameter_info_.txt and bootstrap_info_.txt, which stores SJARACNe 
+input parameters and bootstrap parameters respectively.
 
 ## Examples to create a transcription factor network
 ### Running on an IBM LSF cluster
