@@ -1,61 +1,71 @@
 #!/usr/bin/env python3
-
 import unittest
 import filecmp
+import tempfile
 import os
 from SJARACNe.bin.ch_line_ending import ch_line_ending as ch
 
 
 class TestLineEnding(unittest.TestCase):
-    def setUp(self):
-        #create temporary input files that will hold line endings for their respective platforms
-        self.file_names = ['win', 'mac', 'unix', 'inv', 'answer', 'out']
-        self.endings = [b'\r\n', b'\r', b'\n', b'', b'\n']
-        for i in range(5):
-            with open(self.file_names[i], 'wb') as fin:
-                fin.write(b'Hello world!' + self.endings[i])
-                fin.write(b'This is an example file')
-                fin.close()
-        
+    @classmethod
+    def setUpClass(self): 
         #create empty output file
-        with open('out', 'wb') as fin:
-            fin.write(b'')
-            fin.close()
+        self.out = tempfile.NamedTemporaryFile()
+        self.out.write(b'')
+        #create answer file
+        self.answer = tempfile.NamedTemporaryFile()
+        self.answer.write(b'Hello world!' + b'\n')
+        self.answer.write(b'This is an example file')
+        self.answer.seek(0)
 
     def test_infile_same_as_outfile(self):
+        fp = tempfile.NamedTemporaryFile()
+        fp.write(b'Hello world!\r\nThis is an example file\r\n')
         with self.assertRaises(SystemExit) as err:
-            ch('win', 'win')
+            ch(fp.name, fp.name)
         self.assertEqual(err.exception.code, 'Error - you must omit output file argument if it is identical to input file')
         
 
     def test_first_line_is_invalid(self):
+        fp = tempfile.NamedTemporaryFile(delete=False)
+        fp.write(b'Hello world!')
+        fp.write(b'This is an example file')
         with self.assertRaises(SystemExit) as err:
-            ch('inv', 'out')
+            ch(fp.name, self.out.name)
 
-        with open('inv', 'rb') as fin:
+        with open(fp.name, 'rb') as fin:
             first_line = fin.readline()
-            fin.close();
         self.assertEqual(err.exception.code, 'Error - invalid line ending in the first line: {}'.format(first_line))
 
 
     def test_unix_ending_file(self):
-        output_file = ch('unix', 'out')      
-        self.assertTrue(filecmp.cmp(output_file, 'answer'))
+        fp = tempfile.NamedTemporaryFile(delete=False)
+        fp.write(b'Hello world!' + b'\n')
+        fp.write(b'This is an example file')
+        fp.seek(0)
+        output_file = ch(fp.name, self.out.name)
+        self.assertTrue(filecmp.cmp(output_file, self.answer.name))
 
     def test_windows_ending_file(self):
-        output_file = ch('win', 'out')
-        self.assertTrue(filecmp.cmp(output_file, 'answer'))
-
+        fp = tempfile.NamedTemporaryFile(delete=False) 
+        fp.write(b'Hello world!' + b'\r\n')
+        fp.write(b'This is an example file')
+        fp.seek(0)
+        output_file = ch(fp.name, self.out.name)
+        self.assertTrue(filecmp.cmp(output_file, self.answer.name))
 
     def test_mac_ending(self):
-        output_file = ch('mac', 'out')
-        self.assertTrue(filecmp.cmp(output_file, 'answer'))
-
-    def tearDown(self):
-        #deletes all files that have been used
-        for name in self.file_names:
-            os.remove(name)
-
+        fp = tempfile.NamedTemporaryFile(delete=False)
+        fp.write(b'Hello world!' + b'\r')
+        fp.write(b'This is an example file')
+        fp.seek(0)
+        output_file = ch(fp.name, self.out.name)
+        self.assertTrue(filecmp.cmp(output_file, self.answer.name))
+    
+    @classmethod
+    def tearDownClass(self):
+        self.out.close()
+        self.answer.close()
 
 if __name__ == "__main__":
     unittest.main()
