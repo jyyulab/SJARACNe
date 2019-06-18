@@ -16,7 +16,7 @@ setup(
         "pandas >= 0.22.0",
         "numpy >= 1.14.2",
         "scipy == 1.0.1",
-        "cwltool == 1.0",
+        "cwltool == 1.0.20190228155703",
     ],
     python_requires="==3.6.1",
     packages=find_packages(exclude=["contrib", "docs", "tests"]),

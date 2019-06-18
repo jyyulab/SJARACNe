@@ -14,6 +14,8 @@ correlation between all pairs of genes to reconstruct the regulatory network.
 	* [numpy==1.14.2](https://www.scipy.org/scipylib/download.html)
 	* [scipy==1.0.1](https://www.scipy.org/install.html)
 	* [pandas==0.22.0](https://pandas.pydata.org/)
+	* [cwltool==1.0.20190228155703](https://github.com/common-workflow-language/cwltool/releases)
+	* [cwlexec==0.2.2](https://github.com/IBMSpectrumComputing/cwlexec/releases)
 
 
 ## Installation
