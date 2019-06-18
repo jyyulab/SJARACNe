@@ -1,8 +1,0 @@
->  Input file      /home/lding/cwl-workdir/97a904b5-e7ad-42c9-a15d-299b03ebc046/ch_ending_exp/BRCA100.exp
->  MI threshold    0.153257
->  MI P-value      1e-07
->  DPI tolerance   0
->  Subnetwork file /home/lding/cwl-workdir/97a904b5-e7ad-42c9-a15d-299b03ebc046/ch_ending_probe/tf.txt
->  Bootstrap No: 2
->  Source: sjaracne2
->  Output network: SJARACNE_out.final/consensus_network_3col_.txt
