@@ -16,7 +16,7 @@ before_script:
   - chmod 744 $eggpath/ch_line_ending.py $eggpath/create_consensus_network.py $eggpath/sjaracne.exe
 
 script:
-  - bats test/bats
+  - bats tests
   - python -m pytest -v
     
 #blocklist
