@@ -7,6 +7,9 @@ before_install:
   - sudo add-apt-repository ppa:duggan/bats --yes
   - sudo apt-get update -qq
   - sudo apt-get install -qq bats
+  - cd SJARACNe
+  - make
+  - cd ..
 
 install:
   - pip install -r requirements.txt
@@ -17,8 +20,8 @@ before_script:
   - chmod 744 $eggpath/ch_line_ending.py $eggpath/create_consensus_network.py $eggpath/sjaracne.exe
 
 script:
-  - bats tests
   - python -m pytest -v
+  - bats tests
     
 #blocklist
 branches:
