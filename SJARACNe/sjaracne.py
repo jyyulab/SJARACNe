@@ -93,8 +93,8 @@ def main():
                     cmd = 'cwltool --parallel --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.output_dir,
                                                                                               cwl_path, fp_yml.name)
             elif args.subcommand == 'lsf':
-                    cmd = 'cwlexec -pe PATH -c {} --outdir {} ./SJARACNe/cwl/sjaracne_workflow.cwl {}'.format(
-                        args.config_json, args.output_dir, fp_yml.name)
+                    cmd = 'cwlexec -pe PATH -c {} --outdir {} {}/sjaracne_workflow.cwl {}'.format(
+                        args.config_json, args.output_dir, cwl_path, fp_yml.name)
             else:
                 sys.exit('Error - invalid subcommand.')
             logging.info(cmd)
