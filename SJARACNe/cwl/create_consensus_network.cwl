@@ -43,6 +43,6 @@ inputs:
 
 outputs:
   out_dir:
-    type: Directory
+    type: File
     outputBinding:
-      glob: $(inputs.output_dir)
+      glob: $(inputs.output_dir)/consensus_network_ncol_.txt

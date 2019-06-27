@@ -1,0 +1,7 @@
+>  Input file      /home/lding/cwl-workdir/260ea1fa-d06c-402a-84fc-3cd60ee6dd16/BRCA100.exp
+>  MI threshold    0.153257
+>  MI P-value      1e-07
+>  DPI tolerance   0
+>  Subnetwork file /home/lding/cwl-workdir/260ea1fa-d06c-402a-84fc-3cd60ee6dd16/tf.txt
+>  Bootstrap No: 1
+>  Source: sjaracne2
