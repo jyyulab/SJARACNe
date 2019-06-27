@@ -8,7 +8,6 @@ import shlex
 import logging
 import tempfile
 import pathlib
-import json
 
 
 def main():
@@ -43,9 +42,9 @@ def main():
 
     # Create a subparser for running cwlexec
     subparser_lsf = subparsers.add_parser('lsf', parents=[parent_parser], help='run cwlexec in a IBM LSF cluster')
-    subparser_lsf.add_argument('-q', '--queue', metavar='STR', required=True, help='LSF queue to submit the workflow')
-    subparser_lsf.add_argument('-nr', '--not-rerunnable', help='Not specify bsub rerunnable option -r',
-                               action='store_true')
+    subparser_lsf.add_argument('-j', '--config-json', metavar='STR', required=True, help='LSF-specific configuration '
+                                                                                         'file in JSON format to be '
+                                                                                         'used for workflow execution')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -64,8 +63,11 @@ def main():
     else:
         config_dir = default_config_path
 
+    if not os.path.isdir(args.output_dir):
+        os.mkdir(args.output_dir)
     output_dir_name = os.path.basename(args.output_dir)
     with tempfile.TemporaryDirectory() as tmpdirname:
+        # Create input yml file in a temp directory
         with open(pathlib.PurePath(tmpdirname).joinpath('sjaracne_workflow.yml'), 'w') as fp_yml:
             logging.info(fp_yml.name)
             contents = 'exp_file:\n  class: File\n  path: {}\n' \
@@ -91,14 +93,8 @@ def main():
                     cmd = 'cwltool --parallel --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.output_dir,
                                                                                               cwl_path, fp_yml.name)
             elif args.subcommand == 'lsf':
-                with open(pathlib.PurePath(tmpdirname).joinpath('config.json'), 'w') as fp_config:
-                    config_dict = {"queue": args.queue, "rerunnable": args.not_rerunnable}
-                    logging.info(config_dict)
-                    json.dump(config_dict, fp_config)
-                    fp_config.flush()
-                    fp_config.seek(0)
                     cmd = 'cwlexec -pe PATH -c {} --outdir {} ./SJARACNe/cwl/sjaracne_workflow.cwl {}'.format(
-                        fp_config.name, args.output_dir, fp_yml.name)
+                        args.config_json, args.output_dir, fp_yml.name)
             else:
                 sys.exit('Error - invalid subcommand.')
             logging.info(cmd)
