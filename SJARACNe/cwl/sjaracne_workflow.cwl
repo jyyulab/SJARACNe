@@ -38,8 +38,8 @@ inputs:
     label: final output directory name
 
 outputs:
-  out_test:
-    type: Directory
+  out_dir:
+    type: File
     outputSource: consensus/out_dir
 
 steps:
