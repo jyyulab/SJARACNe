@@ -17,7 +17,7 @@ install:
 
 before_script:
   - eggpath='/home/travis/virtualenv/python3.6.7/lib/python3.6/site-packages/SJARACNe-0.2.0-py3.6.egg/SJARACNe/bin'
-  - chmod 744 $eggpath/ch_line_ending.py $eggpath/create_consensus_network.py $eggpath/sjaracne.exe
+  - chmod 744 $eggpath/ch_line_ending.py $eggpath/create_consensus_network.py $eggpath/QC_input.py $eggpath/sjaracne.exe
 
 script:
   - python -m pytest -v
