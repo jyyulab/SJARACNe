@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+import logging
 
 def main():
     head_description = 'Validating input files\n'
@@ -9,10 +10,13 @@ def main():
     parser.add_argument('-e', '--exp-file', metavar='STR', required=True, help='exp file')
     parser.add_argument('-g', '--probe-file', metavar='STR', required=True, help='probe file')
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO)
+
     check_exp(args.exp_file)
     check_probe(args.probe_file)
 
 def check_exp(input_file):
+    total_genes = 0
     with open(input_file, 'r') as fin:
         #process header
         header = fin.readline()
@@ -22,19 +26,24 @@ def check_exp(input_file):
         #process rest of the file, making sure tabs are splitting entries
         for line in fin:
             words = line.split('\t')
+            total_genes += 1 #add one gene to the total count per line of the exp file
             for word in words:
                 if ' ' in word:
                     sys.exit('Error - spaces are not allowed, only tabs can delimit input file')
                 if word.count('.') > 1:
                     sys.exit('Error - There are some numeric entries missing tab-spacing')
+    logging.info("Number of genes in expression matrix: {}".format(total_genes))
 
 def check_probe(input_file):
+    probe_size = 0
     with open(input_file, 'r') as fin:
         #Make sure there is only one entry/gene per line
         for line in fin:
+            probe_size += 1 #add one gene to size of probe file
             size = len(line.split(' '))
             if size > 1:
                 sys.exit('Error - There are more than one word per line in this probe file')
+    logging.info("Number of hub genes in probe file: {}".format(probe_size))
 
 
 if __name__ == '__main__':

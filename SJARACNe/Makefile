@@ -9,7 +9,7 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S), Darwin)
 	CC := clang++ -arch x86_64
 else
-	CC := g++ -arch x86_64
+	CC := g++
 endif
 
 # Folders
