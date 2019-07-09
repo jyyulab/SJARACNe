@@ -29,9 +29,11 @@ def check_exp(input_file):
             total_genes += 1 #add one gene to the total count per line of the exp file
             for word in words:
                 if ' ' in word:
-                    sys.exit('Error - spaces are not allowed, only tabs can delimit input file')
-                if word.count('.') > 1:
-                    sys.exit('Error - There are some numeric entries missing tab-spacing')
+                    logging.info("Word with spaces is: {}".format(word))
+                    sys.exit('Error - spaces are not allowed, only tabs can delimit input file. Space found in line {}'.format(total_genes+1))
+                if word.count('.') > 1 and word.isnumeric():
+                    print("Numeric entry missing spacing is: {}".format(word))
+                    sys.exit('Error - There are some numeric entries missing tab-spacing in line {}'.format(total_genes+1))
     logging.info("Number of genes in expression matrix: {}".format(total_genes))
 
 def check_probe(input_file):
