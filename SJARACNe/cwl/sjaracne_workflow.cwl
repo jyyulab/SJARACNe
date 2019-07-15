@@ -43,6 +43,14 @@ outputs:
     outputSource: consensus/out_dir
 
 steps:
+  # Step 0: validate input file
+  validate_files:
+    run: QC_input.cwl
+    in:
+      exp_file: exp_file
+      probe_file: probe_file
+    out: []
+
   # Step 1: create seeds from bootstrap number
   create_seeds:
     run: int_to_int_array.cwl

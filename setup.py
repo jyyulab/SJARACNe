@@ -1,4 +1,15 @@
+import sys
 from setuptools import setup, find_packages
+from distutils.command.install import install
+from distutils.command.build import build
+from subprocess import call
+
+class Build(build):
+    def run(self):
+        cmd = ["make", "-C", "./SJARACNe"]
+        if call(cmd) != 0:
+            sys.exit(-1)
+        build.run(self)
 
 version = {}
 with open("./version.py") as fp:
@@ -23,4 +34,7 @@ setup(
     include_package_data=True,
     # test_suite="tests",
     entry_points={"console_scripts": ["sjaracne=SJARACNe.sjaracne:main"]},
+    cmdclass={
+        'build': Build,
+    }
 )

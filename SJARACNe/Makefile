@@ -18,11 +18,7 @@ BUILDDIR := build
 TARGETDIR := bin
 
 # Targets
-ifeq ($(UNAME_S), Darwin)
-	EXECUTABLE := sjaracne.exe
-else
-	EXECUTABLE := sjaracne.exe
-endif
+EXECUTABLE := sjaracne.exe
 TARGET := $(TARGETDIR)/$(EXECUTABLE)
 
 # Final Paths
