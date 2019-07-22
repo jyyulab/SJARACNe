@@ -1,28 +1,31 @@
 {
     "queue": "compbio",
     "rerunnable": true,
-    "project": "sjaracne",
+    "project": "SJARACNe",
     "steps": {
-        "step1": {
+        "validate_files": {
             "res_req": "rusage[mem=100MB]"
         },
-        "step2": {
+        "create_seeds": {
             "res_req": "rusage[mem=100MB]"
         },
-        "step3": {
+        "create_adjmat_names": {
             "res_req": "rusage[mem=100MB]"
         },
-        "step4": {
+        "ch_ending_exp": {
             "res_req": "rusage[mem=100MB]"
         },
-        "step5": {
-            "res_req": "rusage[mem=20000MB]"
+        "ch_ending_probe": {
+            "res_req": "rusage[mem=100MB]"
         },
-        "step6": {
-            "res_req": "rusage[mem=256MB]"
+        "bootstrap": {
+            "res_req": "rusage[mem=1000MB]"
         },
-        "step7": {
-            "res_req": "rusage[mem=1024MB]"
-        }
-    }
+        "copy_to_dir": {
+            "res_req": "rusage[mem=10000MB]"
+        },
+        "consensus": {
+            "res_req": "rusage[mem=10000MB]"
+        },
+    },
 }
