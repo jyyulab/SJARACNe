@@ -27,10 +27,11 @@ branches:
   - develop
   - SJARACNE-Internal-legacy
   - master
+
 #safelist
 branches:
   only:
-  - cwl
+  - finalize
 
 notifications:
   email: false
