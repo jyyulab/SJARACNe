@@ -23,16 +23,16 @@ def main():
     parent_parser.add_argument('-g', '--hub-genes', metavar='FILE', required=True,
                                help='Path to a file containing a list of symbols to be considered as hub genes.')
     parent_parser.add_argument('-pc', '--p-value-consensus', metavar='FLOAT', default=1e-5,
-                               help='P-value threshold in building consensus network')
+                               help='P-value threshold to select edges in building consensus network.')
     parent_parser.add_argument('-pb', '--p-value-bootstrap', metavar='FLOAT', default=1e-7,
-                               help='P-value threshold in building bootstrap networks')
-    parent_parser.add_argument('-d', '--depth', metavar='INT', default=40, help='maximum partitioning depth')
+                               help='P-value threshold to filter mutual information in building bootstrap networks.')
+    parent_parser.add_argument('-d', '--depth', metavar='INT', default=40, help='maximum partitioning depth.')
     parent_parser.add_argument('-c', '--config-dir', metavar='DIR', help='Directory containing ARACNe configuration '
                                                                          'files. Use default configs if not provided.')
     parent_parser.add_argument('-n', '--bootstrap-num', metavar='INT', default=100,
-                               help='Number of bootstrap networks to generate')
+                               help='Number of bootstrap networks to generate.')
     parent_parser.add_argument('-o', '--output-dir', metavar='DIR', required=True,
-                               help='Path to final output directory')
+                               help='Path to final output directory.')
 
     subparsers = parser.add_subparsers(title='Subcommands', help='platforms', dest='subcommand')
     subparsers.required = True
