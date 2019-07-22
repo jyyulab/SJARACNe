@@ -1,4 +1,6 @@
 # SJARACNe
+
+[![Build Status](https://travis-ci.com/jyyulab/SJARACNe.svg?branch=master)](https://travis-ci.com/jyyulab/SJARACNe)
 SJARACNe is a scalable solution of ARACNe that dramatically improves the computational 
 performance, especially on the memory usage to allow even researchers with modest 
 computational power to generate networks from thousands of samples. The algorithm uses adaptive 

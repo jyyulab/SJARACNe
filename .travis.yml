@@ -26,12 +26,11 @@ branches:
   except:
   - develop
   - SJARACNE-Internal-legacy
-  - master
 
 #safelist
 branches:
   only:
-  - finalize
+  - master
 
 notifications:
   email: false
