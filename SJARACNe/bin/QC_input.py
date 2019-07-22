@@ -31,7 +31,7 @@ def check_exp(input_file):
             if len(words) != entries_per_line:
                 logging.info("Line {} does not have an appropriate number of entries".format(total_genes+1))
                 sys.exit('Error - number of entries per line is not consistent across file. See line {}'.format(total_genes+1))
-            for word in words:
+            for word in words[2:]:
                 if ' ' in word:
                     logging.info("Word with spaces is: {}".format(word))
                     sys.exit('Error - spaces are not allowed, only tabs can delimit input file. Space found in line {}'.format(total_genes+1))
