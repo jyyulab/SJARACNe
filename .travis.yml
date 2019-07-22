@@ -21,16 +21,15 @@ script:
   - python -m pytest -v
   - bats tests
     
-#blocklist
+# blocklist
 branches:
   except:
-  - develop
   - SJARACNE-Internal-legacy
 
-#safelist
-branches:
-  only:
-  - master
+# safelist
+# branches:
+#  only:
+#  - master
 
 notifications:
   email: false
