@@ -22,7 +22,7 @@ def check_exp(input_file):
         header = fin.readline()
         words = header.split('\t')
         if words[0] != 'isoformId' or words[1] != 'geneSymbol':
-            sys.exit('Error - Improper header in input file')
+            sys.exit('Error - Improper header in input file: first two column names must be isoformId and geneSymbol respectively.')
         entries_per_line = len(words)
         #process rest of the file, making sure tabs are splitting entries
         for line in fin:
