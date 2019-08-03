@@ -1,3 +1,6 @@
+results/
+test_sjaracne_lsf_real_data.sh
+*.exe
 psub.sh
 log
 SJARACNE_out.tar.gz
