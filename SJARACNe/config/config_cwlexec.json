@@ -19,13 +19,13 @@
             "res_req": "rusage[mem=100MB]"
         },
         "bootstrap": {
-            "res_req": "rusage[mem=1000MB]"
+            "res_req": "rusage[mem=9999MB]"
         },
         "copy_to_dir": {
-            "res_req": "rusage[mem=10000MB]"
+            "res_req": "rusage[mem=100MB]"
         },
         "consensus": {
-            "res_req": "rusage[mem=10000MB]"
+            "res_req": "rusage[mem=20000MB]"
         },
     },
 }
