@@ -6,7 +6,6 @@ import argparse
 import subprocess
 import shlex
 import logging
-import tempfile
 import pathlib
 
 
@@ -66,39 +65,38 @@ def main():
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir)
     output_dir_name = os.path.basename(args.output_dir)
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        # Create input yml file in a temp directory
-        with open(pathlib.PurePath(tmpdirname).joinpath('sjaracne_workflow.yml'), 'w') as fp_yml:
-            logging.info(fp_yml.name)
-            contents = 'exp_file:\n  class: File\n  path: {}\n' \
-                       'probe_file:\n  class: File\n  path: {}\n' \
-                       'p_value_consensus: {}\n' \
-                       'p_value_bootstrap: {}\n' \
-                       'depth: {}\n' \
-                       'aracne_config_dir:\n  class: Directory\n  path: {}\n' \
-                       'bootstrap_num: {}\n' \
-                       'final_out_dir_name: {}'.format(os.path.abspath(args.exp_file), os.path.abspath(args.hub_genes),
-                                                       args.p_value_consensus, args.p_value_bootstrap, args.depth,
-                                                       config_dir, args.bootstrap_num, output_dir_name)
-            logging.info(contents)
-            fp_yml.write(contents)
-            fp_yml.flush()
-            fp_yml.seek(0)
+    # Create input yml file in a temp directory
+    with open(pathlib.PurePath(args.output_dir).joinpath('sjaracne_workflow.yml'), 'w') as fp_yml:
+        logging.info(fp_yml.name)
+        contents = 'exp_file:\n  class: File\n  path: {}\n' \
+                   'probe_file:\n  class: File\n  path: {}\n' \
+                   'p_value_consensus: {}\n' \
+                   'p_value_bootstrap: {}\n' \
+                   'depth: {}\n' \
+                   'aracne_config_dir:\n  class: Directory\n  path: {}\n' \
+                   'bootstrap_num: {}\n' \
+                   'final_out_dir_name: {}'.format(os.path.abspath(args.exp_file), os.path.abspath(args.hub_genes),
+                                                   args.p_value_consensus, args.p_value_bootstrap, args.depth,
+                                                   config_dir, args.bootstrap_num, output_dir_name)
+        logging.info(contents)
+        fp_yml.write(contents)
+        fp_yml.flush()
+        fp_yml.seek(0)
 
-            if args.subcommand == 'local':
-                if args.serial:
-                    cmd = 'cwltool --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.output_dir, cwl_path,
-                                                                                   fp_yml.name)
-                else:
-                    cmd = 'cwltool --parallel --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.output_dir,
-                                                                                              cwl_path, fp_yml.name)
-            elif args.subcommand == 'lsf':
-                    cmd = 'cwlexec -pe PATH -c {} --outdir {} {}/sjaracne_workflow.cwl {}'.format(
-                        args.config_json, args.output_dir, cwl_path, fp_yml.name)
+        if args.subcommand == 'local':
+            if args.serial:
+                cmd = 'cwltool --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.output_dir, cwl_path,
+                                                                               fp_yml.name)
             else:
-                sys.exit('Error - invalid subcommand.')
-            logging.info(cmd)
-            run_shell_command_call(cmd)
+                cmd = 'cwltool --parallel --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.output_dir,
+                                                                                          cwl_path, fp_yml.name)
+        elif args.subcommand == 'lsf':
+                cmd = 'cwlexec -pe PATH -c {} --outdir {} {}/sjaracne_workflow.cwl {}'.format(
+                    args.config_json, args.output_dir, cwl_path, fp_yml.name)
+        else:
+            sys.exit('Error - invalid subcommand.')
+        logging.info(cmd)
+        run_shell_command_call(cmd)
 
     logging.info('All done.')
 
