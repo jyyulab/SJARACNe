@@ -34,9 +34,9 @@ $ conda install --file requirements.txt
 
 
 ### Using pip
-First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install package requirements.
+First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install SJARACNe and the dependencies.
 
-```$ pip install -f requirements.txt```
+```$ pip install SJARACNe```
 
 
 ### Install from source
