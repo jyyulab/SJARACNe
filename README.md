@@ -1,6 +1,4 @@
 # SJARACNe
-[![Build Status](https://travis-ci.com/jyyulab/SJARACNe.svg?branch=master)](https://travis-ci.com/jyyulab/SJARACNe)
-
 SJARACNe is a scalable solution of ARACNe that dramatically improves the computational 
 performance, especially on the memory usage to allow even researchers with modest 
 computational power to generate networks from thousands of samples. The algorithm uses adaptive 
@@ -34,7 +32,9 @@ $ conda install --file requirements.txt
 
 
 ### Using pip
-First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install SJARACNe and the dependencies.
+First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install SJARACNe
+and dependencies.
+
 ```$ pip install SJARACNe```
 
 
@@ -64,6 +64,13 @@ Subcommands:
  computing platforms. We have tested it locally using [cwltool](https://github.com/common-workflow-language/cwltool) 
  and on an IBM LSF cluster using [cwlexec](https://github.com/IBMSpectrumComputing/cwlexec). 
  For the convenience, a python wrapper is developed for you to choose computing platform using ```subcommand```.
+ 
+The local mode (sjaracne local) runs in parallel by default using cwltool's --parallel option. To run it in serial, 
+use --serial option.
+
+To use LSF mode, editing the LSF-specific configuration file SJARACNe/config/config_cwlexec.json to change the default 
+queue and adjust memory reservation for each step is necessary. Consider increasing memory reservation for bootstrap 
+step and consensus step if the dimension of your expression matrix file is large.
 
 
 ### Inputs
