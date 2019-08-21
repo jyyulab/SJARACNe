@@ -44,6 +44,7 @@ and dependencies.
 ```bash
 $ git clone https://github.com/jyyulab/SJARACNe
 $ cd SJARACNe
+$ python setup.py build     # build SJARACNe binary
 $ python setup.py install
 ```
 
