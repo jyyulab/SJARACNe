@@ -1,4 +1,4 @@
-#!/usr/env/bin python3
+#!/usr/bin/env python3
 
 import unittest
 import filecmp
@@ -7,6 +7,7 @@ import sys
 from SJARACNe.bin.create_consensus_network import create_consensus_network as cn
 from SJARACNe.bin.create_consensus_network import create_enhanced_consensus_network as ecn
 from SJARACNe.bin.create_consensus_network import uprob
+
 
 class TestConsensusNetwork(unittest.TestCase):
     @classmethod

@@ -92,11 +92,11 @@ input parameters and bootstrap parameters respectively.
 
 
 ## Examples to create a transcription factor network
-### Running on an IBM LSF cluster
+### Running on a single machine (Linux/OSX) 
 ```sjaracne local -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final```
 
 
-### Running on a single machine (Linux/OSX) 
+### Running on an IBM LSF cluster
 ```sjaracne lsf -j ./SJARACNe/config/config_cwlexec.json -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final```
 
 
