@@ -41,7 +41,7 @@ def main():
 
     # Create a subparser for running cwlexec
     subparser_lsf = subparsers.add_parser('lsf', parents=[parent_parser], help='run cwlexec in a IBM LSF cluster')
-    subparser_lsf.add_argument('-j', '--config-json', metavar='STR', required=True, help='LSF-specific configuration '
+    subparser_lsf.add_argument('-j', '--config-json', metavar='FILE', required=True, help='LSF-specific configuration '
                                                                                          'file in JSON format to be '
                                                                                          'used for workflow execution')
 
