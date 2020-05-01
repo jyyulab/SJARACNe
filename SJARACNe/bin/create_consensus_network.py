@@ -72,7 +72,7 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
                     # the corresponding value to the edge between the hub gene and the gene with an odd index
                     # appearing before the value in the tokens list
                     for index in range(1, len(tokens), 2):
-                        key = hub_id + "--" + tokens[index]  # Creating a key for the edge
+                        key = hub_id + "----" + tokens[index]  # Creating a key for the edge
                         if key in total_edge_number:
                             # Updating the total number of edges observed for the particular key (edge)
                             total_edge_number[key] += 1
@@ -128,7 +128,7 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
         # Iterate over all edges in a sorted fashion
         for key in sorted(total_edge_number.keys()):
             # Extract first two gene involving an edge from the key (edge)
-            tks = key.split('--')
+            tks = key.split('----')
             gene1 = tks[0]
             gene2 = tks[1]
 
