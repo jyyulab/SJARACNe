@@ -165,7 +165,7 @@ def create_enhanced_consensus_network(exp_mat, network, out_dir, subnet=None):
     out_file_name = ("_".join(input_net_name_tokens[0:2]) + "_ncol_" +
                      "_".join(input_net_name_tokens[3:len(input_net_name_tokens) - 1]))
     header = ("source", "target", "source.symbol", "target.symbol", "MI", "pearson",
-              "spearman", "rho", "p-value")
+              "spearman", "slope", "p-value")
 
     # Read in subnetwork file
     subnet_list = []
@@ -209,13 +209,13 @@ def create_enhanced_consensus_network(exp_mat, network, out_dir, subnet=None):
                     exp_values2 = exp_symbol_values2[1:].astype(float)
                     exp_dict[node2] = (gene_symbol2, exp_values2)
 
-                rho, intercept, r, p, stderr = stats.linregress(exp_values1, exp_values2)
+                slope, intercept, r, p, stderr = stats.linregress(exp_values1, exp_values2)
                 scc, sp = stats.spearmanr(exp_values1, exp_values2)
                 pcc, pp = stats.pearsonr(exp_values1, exp_values2)
 
                 row = (node1, node2, gene_symbol1, gene_symbol2,
                        "{0:.4f}".format(mi), "{0:.4f}".format(pcc), "{0:.4f}".format(scc),
-                       "{0:.4f}".format(rho), "{0:.4f}".format(p))
+                       "{0:.4f}".format(slope), "{0:.4f}".format(p))
                 fout.write('\t'.join(row) + '\n')
 
                 if out_subnet is not None:
