@@ -1,4 +1,4 @@
-source	target	source.symbol	target.symbol	MI	pearson	spearman	rho	p-value
+source	target	source.symbol	target.symbol	MI	pearson	spearman	slope	p-value
 ASCL2	STMN1	ASCL2	STMN1	0.0652	0.0164	0.0161	0.0230	0.7144
 FLYWCH1	SLC22A18	FLYWCH1	SLC22A18	0.0858	-0.0104	-0.0105	-0.0179	0.8159
 HOPX	AKR1C3	HOPX	AKR1C3	0.0804	0.1136	0.1108	0.0124	0.0110
