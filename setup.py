@@ -25,7 +25,7 @@ setup(
     license="See LICENSE.md",
     install_requires=[
         "pandas >= 0.22.0",
-        "numpy == 1.14.2",
+        "numpy >= 1.14.2",
         "scipy >= 1.0.1",
         "cwltool >= 1.0.20190618201008",
     ],

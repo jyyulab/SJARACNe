@@ -1,0 +1,14 @@
+exp_file:
+  class: File
+  path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/inputs/BRCA100.exp
+probe_file:
+  class: File
+  path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/inputs/tf.txt
+p_value_consensus: 1e-05
+p_value_bootstrap: 1e-07
+depth: 40
+aracne_config_dir:
+  class: Directory
+  path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/SJARACNe/config
+bootstrap_num: 2
+final_out_dir_name: SJARACNE_out.final
