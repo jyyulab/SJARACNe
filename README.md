@@ -79,8 +79,9 @@ step and consensus step if the dimension of your expression matrix file is large
 ### Inputs
 The main input for SJARACNe is a tab-separated genes/protein by cells/samples expression matrix
 with the first two columns being ID and symbol. The second required input file is the list of
-significant genes/proteins IDs to be considered as hubs in the reconstructed network. An output directory is required
-for storing output files. Additional parameters (e.g., LSF queue) for running on different platforms are required. 
+significant genes/proteins IDs to be considered as hubs in the reconstructed network (**the most recent version of curated 
+transcription factors and signaling proteins can be found in ./SJARACNe/config/TF_list.txt and ./SJARACNe/config/SIG_list.txt, respectively**). 
+An output directory is required for storing output files. Additional parameters (e.g., LSF queue) for running on different platforms are required. 
 Those are available in the helping information of the corresponding subcommands, e.g., ```sjaracne lsf -h```.
 
 
