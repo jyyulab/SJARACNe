@@ -3,9 +3,9 @@
 
 SJARACNe is a scalable solution of ARACNe that dramatically improves the computational 
 performance, especially on the memory usage to allow even researchers with modest 
-computational power to generate networks from thousands of samples. The algorithm uses adaptive 
-partitioning mutual information to calculate the correlation between all pairs of genes to 
-reconstruct the regulatory network.
+computational power to generate networks from thousands of samples. The algorithm uses 
+adaptive partitioning mutual information to calculate the correlation between all pairs 
+of genes to reconstruct the regulatory network.
 
 
 ## Download
@@ -13,11 +13,11 @@ reconstruct the regulatory network.
 
 
 ## Prerequisites
-* [Python 3.6.1](https://www.python.org/downloads/)
-	* [numpy==1.14.2](https://www.scipy.org/scipylib/download.html)
-	* [scipy==1.0.1](https://www.scipy.org/install.html)
-	* [pandas==0.22.0](https://pandas.pydata.org/)
-	* [cwltool==1.0.20190618201008](https://github.com/common-workflow-language/cwltool/releases)
+* [Python>=3.7.0](https://www.python.org/downloads/)
+	* [numpy==1.20.1](https://www.scipy.org/scipylib/download.html)
+	* [scipy==1.6.1](https://www.scipy.org/install.html)
+	* [pandas==1.2.3](https://pandas.pydata.org/)
+	* [cwltool>=3.0.20201117141248](https://github.com/common-workflow-language/cwltool/releases)
 * [cwlexec==0.2.2](https://github.com/IBMSpectrumComputing/cwlexec/releases) (required for running on IBM LSF)
 
 
@@ -27,14 +27,14 @@ The recommended method of setting up the required Python environment and depende
 [conda](https://conda.io/en/latest/) dependency manager:
 
 ```bash
-$ conda create -n py36 python=3.6.1
-$ source activate py36
+$ conda create -n py374 python=3.7.4
+$ source activate py374
 $ conda install --file requirements.txt
 ```
 
 
 ### Using pip
-First install [Python 3.6.1](https://www.python.org/downloads/) and then use the following command to install SJARACNe
+First install [Python 3.7.4](https://www.python.org/downloads/) and then use the following command to install SJARACNe
 and dependencies.
 
 ```$ pip install SJARACNe```
