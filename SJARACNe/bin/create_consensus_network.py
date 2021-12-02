@@ -85,8 +85,8 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
                             # Initializing total MI between the genes involving in the particular key (edge)
                             # if the key (edge) is newly generated
                             total_mi[key] = float(tokens[index + 1])
-                            # Increment the total number of edges processed so far
-                            total_edge_in_runs[bootstrap_run_num] += 1
+                        # Increment the total number of edges processed so far for a bootstrap run
+                        total_edge_in_runs[bootstrap_run_num] += 1
         # Increment the bootstrap file index
         bootstrap_run_num += 1
 

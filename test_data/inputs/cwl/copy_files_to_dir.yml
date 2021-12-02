@@ -1,4 +1,0 @@
-input_files:
-  - {class: File, path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/inputs/sig.txt}
-  - {class: File, path: /research/rgs01/home/clusterHome/lding/Git/SJARACNe/test_data/inputs/tf.txt}
-dirname: test_copy_files_to_dir

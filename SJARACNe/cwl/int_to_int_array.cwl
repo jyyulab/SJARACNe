@@ -17,7 +17,7 @@ outputs:
 
 expression: |
   ${ var i_arr = [];
-     for (var i = 0; i < inputs.number; i++) {
+     for (var i = 1; i < inputs.number+1; i++) {
        i_arr.push(i);
      }
      return { "int_array": i_arr };

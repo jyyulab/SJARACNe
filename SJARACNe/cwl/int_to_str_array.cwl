@@ -17,7 +17,7 @@ outputs:
 
 expression: |
   ${ var str_arr = [], str_i = '';
-     for (var i = 0; i < inputs.number; i++) {
+     for (var i = 1; i < inputs.number+1; i++) {
        if (i <= 999) {
          str_i = ("00" + i).slice(-3);
        }
