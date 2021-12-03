@@ -18,11 +18,11 @@ teardown() {
 	rm results0
 }
 
-@test "int=3 to int[0, 1, 2]" {
+@test "int=3 to int[1, 2, 3]" {
 	echo 'number: 3' >> $ymlPath
 
 	cwltool ./SJARACNe/cwl/int_to_int_array.cwl $ymlPath | tr -d '\n' | tr -s " " | tee results3
-	run grep '0, 1, 2' results3
+	run grep '1, 2, 3' results3
 	[ "$status" -eq 0 ]
 	rm results3
 }
