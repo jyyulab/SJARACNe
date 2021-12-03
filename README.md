@@ -14,11 +14,12 @@ of genes to reconstruct the regulatory network.
 
 ## Prerequisites
 * [Python>=3.7.0](https://www.python.org/downloads/)
-	* [numpy==1.20.1](https://www.scipy.org/scipylib/download.html)
-	* [scipy==1.6.1](https://www.scipy.org/install.html)
-	* [pandas==1.2.3](https://pandas.pydata.org/)
-	* [cwltool>=3.0.20201117141248](https://github.com/common-workflow-language/cwltool/releases)
-* [cwlexec==0.2.2](https://github.com/IBMSpectrumComputing/cwlexec/releases) (required for running on IBM LSF)
+    * [numpy==1.20.1](https://www.scipy.org/scipylib/download.html)
+    * [scipy==1.6.1](https://www.scipy.org/install.html)
+    * [pandas==1.2.3](https://pandas.pydata.org/)
+    * [cwltool>=3.0.20201117141248](https://github.com/common-workflow-language/cwltool/releases)
+    * [node.js>=4.4.4](https://nodejs.org/fa/blog/release/v4.4.4/) (required by cwltool to run locally)
+* [cwlexec==0.2.2](https://github.com/IBMSpectrumComputing/cwlexec/releases) (CWL engine to run on IBM LSF)
 
 
 ## Installation
@@ -32,21 +33,25 @@ $ source activate py374
 $ conda install --file requirements.txt
 ```
 
-
-### Using pip
+### (Option 1) Install via pip
 First install [Python 3.7.4](https://www.python.org/downloads/) and then use the following command to install SJARACNe
 and dependencies.
 
 ```$ pip install SJARACNe```
 
-
-### Install from source
+### (Option 2) Install from source
 ```bash
 $ git clone https://github.com/jyyulab/SJARACNe
 $ cd SJARACNe
 $ python setup.py build     # build SJARACNe binary
 $ python setup.py install
 ```
+
+### Install optional packages depends on runtime platform
+SJARACNe workflow is implemented in [Common Workflow Language](https://www.commonwl.org/). 
+Install node.js for running locally using cwltool; install cwlexec to run on IBM LSF platform. 
+Users may check [Common Workflow Language](https://www.commonwl.org/) site for available workflow engines 
+to run on other platforms, e.g., [Toil](https://toil.readthedocs.io/en/latest/).
 
 
 ## Usage
