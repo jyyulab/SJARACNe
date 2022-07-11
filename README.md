@@ -13,7 +13,7 @@ of genes to reconstruct the regulatory network.
 
 
 ## Prerequisites
-* [Python>=3.7.0](https://www.python.org/downloads/)
+* [Python==3.7.6](https://www.python.org/downloads/)
     * [numpy==1.20.1](https://www.scipy.org/scipylib/download.html)
     * [scipy==1.6.1](https://www.scipy.org/install.html)
     * [pandas==1.2.3](https://pandas.pydata.org/)
@@ -22,21 +22,22 @@ of genes to reconstruct the regulatory network.
 * [cwlexec==0.2.2](https://github.com/IBMSpectrumComputing/cwlexec/releases) (CWL engine to run on IBM LSF)
 
 
-## Installation
-### Using conda to create a virtual environment (recommended)
+## Create a virtual environment (recommended)
+### Using conda to create a virtual environment 
 The recommended method of setting up the required Python environment and dependencies is to use the
 [conda](https://conda.io/en/latest/) dependency manager:
 
 ```bash
-$ conda create -n py374 python=3.7.4
-$ source activate py374
-$ conda install --file requirements.txt
+$ conda create -n py376 python=3.7.6
+$ source activate py376
 ```
 
-### (Option 1) Install via pip
-First install [Python 3.7.4](https://www.python.org/downloads/) and then use the following command to install SJARACNe
-and dependencies.
+## Installation
+Depends on the runtime environment, [node.js](https://nodejs.org/en/download/) may be installed manually to run 
+cwltool locally; [cwlexec](https://github.com/yuch7/cwlexec) may be installed manually to run on IBM LSF platform. 
 
+There are two options to install SJARACNe and its dependencies:
+### (Option 1) Install via pip
 ```$ pip install SJARACNe```
 
 ### (Option 2) Install from source
@@ -98,12 +99,14 @@ input parameters and bootstrap parameters respectively.
 
 
 ## Examples to create a transcription factor network
+**Note:** for testing purpose, the number of bootstraps (```-n```) is set to 2, the consensus p-value threshold 
+```-pc``` is set to 1.0 in the following examples. ```-n 100``` and ```-pc 1e-5``` are recommended for real 
+applications.
 ### Running on a single machine (Linux/OSX) 
-```sjaracne local -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final```
-
+```sjaracne local -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final -pc 1.0```
 
 ### Running on an IBM LSF cluster
-```sjaracne lsf -j ./SJARACNe/config/config_cwlexec.json -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final```
+```sjaracne lsf -j ./SJARACNe/config/config_cwlexec.json -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final -pc 1.0```
 
 
 ## Reference
