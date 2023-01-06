@@ -32,6 +32,8 @@ def main():
                                help='Number of bootstrap networks to generate.')
     parent_parser.add_argument('-o', '--output-dir', metavar='DIR', required=True,
                                help='Path to final output directory.')
+    parent_parser.add_argument('-tmp', '--tmpdir-prefix', dest='tmpdir_prefix',metavar='DIR', required=True,
+                               help='Specify tmp path,default is /tmp.')
 
     subparsers = parser.add_subparsers(title='Subcommands', help='platforms', dest='subcommand')
     subparsers.required = True
@@ -61,9 +63,12 @@ def main():
         config_dir = args.config_dir
     else:
         config_dir = default_config_path
+        
+    if not os.path.isdir(args.tmpdir_prefix):
+        os.makedirs(args.tmpdir_prefix)    
 
     if not os.path.isdir(args.output_dir):
-        os.mkdir(args.output_dir)
+        os.makedirs(args.output_dir)
     output_dir_name = os.path.basename(args.output_dir)
     # Create input yml file in a temp directory
     with open(pathlib.PurePath(args.output_dir).joinpath('sjaracne_workflow.yml'), 'w') as fp_yml:
@@ -85,11 +90,9 @@ def main():
 
         if args.subcommand == 'local':
             if args.serial:
-                cmd = 'cwltool --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.output_dir, cwl_path,
-                                                                               fp_yml.name)
+                cmd = 'cwltool --tmpdir-prefix {} --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.tmpdir_prefix, args.output_dir, cwl_path,fp_yml.name)
             else:
-                cmd = 'cwltool --parallel --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.output_dir,
-                                                                                          cwl_path, fp_yml.name)
+                cmd = 'cwltool --tmpdir-prefix {} --parallel --outdir {} {}/sjaracne_workflow.cwl {}'.format(args.tmpdir_prefix, args.output_dir,cwl_path, fp_yml.name)
         elif args.subcommand == 'lsf':
                 cmd = 'cwlexec -pe PATH -c {} --outdir {} {}/sjaracne_workflow.cwl {}'.format(
                     args.config_json, args.output_dir, cwl_path, fp_yml.name)
