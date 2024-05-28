@@ -13,10 +13,10 @@ of genes to reconstruct the regulatory network.
 
 
 ## Prerequisites
-* [Python==3.7.6](https://www.python.org/downloads/)
-    * [numpy==1.20.1](https://www.scipy.org/scipylib/download.html)
-    * [scipy==1.6.1](https://www.scipy.org/install.html)
-    * [pandas==1.2.3](https://pandas.pydata.org/)
+* [Python>=3.7.6](https://www.python.org/downloads/)
+    * [numpy>=1.20.1](https://www.scipy.org/scipylib/download.html)
+    * [scipy>=1.6.1](https://www.scipy.org/install.html)
+    * [pandas>=1.2.3](https://pandas.pydata.org/)
     * [cwltool>=3.0.20201117141248](https://github.com/common-workflow-language/cwltool/releases)
     * [node.js>=4.4.4](https://nodejs.org/fa/blog/release/v4.4.4/) (required by cwltool to run locally)
 * [cwlexec==0.2.2](https://github.com/IBMSpectrumComputing/cwlexec/releases) (CWL engine to run on IBM LSF)
@@ -28,8 +28,8 @@ The recommended method of setting up the required Python environment and depende
 [conda](https://conda.io/en/latest/) dependency manager:
 
 ```bash
-$ conda create -n py376 python=3.7.6
-$ source activate py376
+$ conda create -n py392 python=3.9.2
+$ source activate py392
 ```
 
 ## Installation
