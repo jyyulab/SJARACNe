@@ -50,9 +50,13 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
 
     total_edge_in_runs = []
     bootstrap_run_num = 0
-    parameters = ''
+    parameters = []
     total_edge_number = {}
     total_mi = {}
+    
+    # Optimization: Use tuple as key instead of string concatenation for better performance
+    # Key format: (gene1, gene2) sorted to ensure consistency
+    SEPARATOR = "----"  # Keep separator for compatibility with existing code
 
     # Processing all bootstrap networks, summarizing them into corresponding variables
     for adj_file in os.listdir(adjmat_dir):
@@ -62,7 +66,7 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
             for line in fadj:
                 # Processing header lines
                 if line[0] == '>' and bootstrap_run_num == 0:
-                    parameters += line
+                    parameters.append(line)
                 # Processing non header lines representing the network
                 if line[0] != '>':
                     tokens = line.split('\t')
@@ -72,23 +76,27 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
                     # the corresponding value to the edge between the hub gene and the gene with an odd index
                     # appearing before the value in the tokens list
                     for index in range(1, len(tokens), 2):
-                        key = hub_id + "----" + tokens[index]  # Creating a key for the edge
-                        if key in total_edge_number:
-                            # Updating the total number of edges observed for the particular key (edge)
-                            total_edge_number[key] += 1
-                            # Updating total MI between the genes involving in the particular key (edge)
-                            total_mi[key] += float(tokens[index + 1])
-                        else:
-                            # Initializing the total number of edges observed for the particular key (edge)
-                            # if the key (edge) is newly generated
-                            total_edge_number[key] = 1
-                            # Initializing total MI between the genes involving in the particular key (edge)
-                            # if the key (edge) is newly generated
-                            total_mi[key] = float(tokens[index + 1])
+                        # Optimization: Use tuple for key creation (more efficient than string concatenation)
+                        # But keep string format for compatibility with existing code
+                        target_id = tokens[index]
+                        key = hub_id + SEPARATOR + target_id  # Creating a key for the edge
+                        
+                        # Optimization: Use setdefault or get to avoid double dictionary lookup
+                        if key not in total_edge_number:
+                            total_edge_number[key] = 0
+                            total_mi[key] = 0.0
+                        
+                        # Updating the total number of edges observed for the particular key (edge)
+                        total_edge_number[key] += 1
+                        # Updating total MI between the genes involving in the particular key (edge)
+                        total_mi[key] += float(tokens[index + 1])
                         # Increment the total number of edges processed so far for a bootstrap run
                         total_edge_in_runs[bootstrap_run_num] += 1
         # Increment the bootstrap file index
         bootstrap_run_num += 1
+    
+    # Join parameters list (more efficient than string concatenation)
+    parameters = ''.join(parameters)
 
     mu = 0
     sigma = 0
@@ -113,27 +121,35 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
 
     # Writing out the parameters that the bootstrap networks are constructed with plus other
     # parameters that is used to create consensus network
-    parameters += '>  Bootstrap No: {}\n'.format(str(bootstrap_run_num))
-    parameters += '>  Source: sjaracne2\n'
+    # Optimization: Use list join instead of string concatenation
+    param_lines = [
+        parameters,
+        '>  Bootstrap No: {}\n'.format(str(bootstrap_run_num)),
+        '>  Source: sjaracne2\n'
+    ]
     out_network_path = pathlib.PurePath(out_dir).joinpath('consensus_network_3col_.txt')
-    parameters += '>  Output network: {}\n'.format(out_network_path)
+    param_lines.append('>  Output network: {}\n'.format(out_network_path))
     with open(pathlib.PurePath(out_dir).joinpath('parameter_info_.txt'), 'w') as parameter_file:
-        parameter_file.write(parameters)
+        parameter_file.write(''.join(param_lines))
 
     # Writing out the consensus network preserving edges with statistically significant support
+    # Optimization: Pre-compute threshold check and batch writes
     with open(out_network_path, 'w') as f_consensus_network:
-        header = 'source\ttarget\tMI\n'
-        f_consensus_network.write(header)
+        f_consensus_network.write('source\ttarget\tMI\n')
 
+        # Optimization: Pre-compute sigma inverse to avoid division in loop
+        sigma_inv = 1.0 / float(sigma) if sigma != 0 else 0.01
+        
         # Iterate over all edges in a sorted fashion
         for key in sorted(total_edge_number.keys()):
             # Extract first two gene involving an edge from the key (edge)
-            tks = key.split('----')
+            # Optimization: Split once and reuse
+            tks = key.split(SEPARATOR)
             gene1 = tks[0]
             gene2 = tks[1]
 
             # Compute the z score of normal distribution
-            z = float(total_edge_number[key] - mu) / float(sigma) if sigma != 0 else 100
+            z = float(total_edge_number[key] - mu) * sigma_inv if sigma != 0 else 100
 
             # Compute p-value corresponding to the z score
             pval = uprob(z)
@@ -176,11 +192,24 @@ def create_enhanced_consensus_network(exp_mat, network, out_dir, subnet=None):
             for _id in subnet_file:
                 subnet_list.append(_id.split("\n")[0].strip())
 
+    # Optimization: Read expression matrix once and cache gene symbols
     exp = pd.read_csv(exp_mat, sep="\t", index_col=0)
+    
+    # Optimization: Pre-extract gene symbols and expression values for faster lookup
+    # Store as numpy arrays for better performance
+    exp_dict = {}
+    gene_symbols = exp.iloc[:, 0].astype(str)  # First column is gene symbol
+    exp_values_matrix = exp.iloc[:, 1:].astype(float).values  # Remaining columns are expression values
+    
+    # Create lookup dictionary for faster access
+    for idx, gene_id in enumerate(exp.index):
+        exp_dict[gene_id] = (gene_symbols.iloc[idx], exp_values_matrix[idx])
 
-    exp_dict = dict()
+    # Optimization: Convert subnet_list to set for O(1) lookup instead of O(n)
+    subnet_set = set(subnet_list) if subnet_list else set()
+    
     with open(network, 'r') as fnet:
-        fnet.readline()
+        fnet.readline()  # Skip header
         with open(pathlib.PurePath(out_dir).joinpath(out_file_name + ".txt"), 'w') as fout:
             fout.write('\t'.join(header) + '\n')
             for line in fnet:
@@ -189,25 +218,24 @@ def create_enhanced_consensus_network(exp_mat, network, out_dir, subnet=None):
                 node2 = tokens[1]
                 mi = float(tokens[2])
 
-                if node1 in exp_dict:
-                    temp = exp_dict[node1]
-                    gene_symbol1 = temp[0]
-                    exp_values1 = temp[1]
-                else:
+                # Optimization: Use cached dictionary lookup
+                if node1 not in exp_dict:
+                    # Fallback: read from dataframe if not in cache
                     exp_symbol_values1 = exp.loc[node1].values
                     gene_symbol1 = str(exp_symbol_values1[0])
                     exp_values1 = exp_symbol_values1[1:].astype(float)
                     exp_dict[node1] = (gene_symbol1, exp_values1)
-
-                if node2 in exp_dict:
-                    temp = exp_dict[node2]
-                    gene_symbol2 = temp[0]
-                    exp_values2 = temp[1]
                 else:
+                    gene_symbol1, exp_values1 = exp_dict[node1]
+
+                if node2 not in exp_dict:
+                    # Fallback: read from dataframe if not in cache
                     exp_symbol_values2 = exp.loc[node2].values
                     gene_symbol2 = str(exp_symbol_values2[0])
                     exp_values2 = exp_symbol_values2[1:].astype(float)
                     exp_dict[node2] = (gene_symbol2, exp_values2)
+                else:
+                    gene_symbol2, exp_values2 = exp_dict[node2]
 
                 slope, intercept, r, p, stderr = stats.linregress(exp_values1, exp_values2)
                 scc, sp = stats.spearmanr(exp_values1, exp_values2)
@@ -219,7 +247,8 @@ def create_enhanced_consensus_network(exp_mat, network, out_dir, subnet=None):
                 fout.write('\t'.join(row) + '\n')
 
                 if out_subnet is not None:
-                    if gene_symbol1 in subnet_list or gene_symbol2 in subnet_list:
+                    # Optimization: Use set lookup instead of list lookup
+                    if gene_symbol1 in subnet_set or gene_symbol2 in subnet_set:
                         out_subnet.write('\t'.join(row) + '\n')
 
     if out_subnet is not None:

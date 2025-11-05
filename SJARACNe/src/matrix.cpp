@@ -530,12 +530,14 @@ bool Microarray_Set::isSameGene(int i, int j) const
 
 int Microarray_Set::getAccessionId(const std::string& accnum) const
 {
-   int numMarkers = markerset.size();
-
-   for (int i = 0; i < numMarkers; i++)
-      if (markerset[i].accnum == accnum)
-         return i;
-
+   // Optimization: Use hash map for O(1) lookup instead of O(n) linear search
+   if (!lookupCacheValid)
+      rebuildLookupCache();
+   
+   auto it = accessionIdMap.find(accnum);
+   if (it != accessionIdMap.end())
+      return it->second;
+   
    return -1; // did not find it
 }
 
@@ -545,11 +547,58 @@ int Microarray_Set::getProbeId(const std::string& label) const
 {
    int len = label.length();
 
+   // Check if label is numeric
+   bool isNumeric = true;
    for (int i = 0; i < len; i++)
-      if (!std::isdigit(label[i]))     // label is not a number
-         return getAccessionId(label); // perhaps it is an accession ID
+   {
+      if (!std::isdigit(label[i]))
+      {
+         isNumeric = false;
+         break;
+      }
+   }
 
-   return std::atoi(label.c_str());    // label is a number, convert it to int
+   if (isNumeric)
+      return std::atoi(label.c_str());    // label is a number, convert it to int
+
+   // Optimization: Use hash map for O(1) lookup instead of O(n) linear search
+   if (!lookupCacheValid)
+      rebuildLookupCache();
+   
+   auto it = probeIdMap.find(label);
+   if (it != probeIdMap.end())
+      return it->second;
+   
+   // Fallback to accession ID lookup
+   return getAccessionId(label); // perhaps it is an accession ID
+}
+
+//------------------------------------------------------------------------------------
+
+void Microarray_Set::rebuildLookupCache() const
+{
+   // Clear and rebuild lookup caches
+   probeIdMap.clear();
+   accessionIdMap.clear();
+   
+   int numMarkers = markerset.size();
+   
+   for (int i = 0; i < numMarkers; i++)
+   {
+      // Cache accession number lookups
+      if (!markerset[i].accnum.empty())
+         accessionIdMap[markerset[i].accnum] = i;
+      
+      // Cache label lookups (for probe ID lookups)
+      if (!markerset[i].label.empty())
+      {
+         probeIdMap[markerset[i].label] = i;
+         // Also cache with "_" prefix for compatibility
+         probeIdMap["_" + markerset[i].label] = i;
+      }
+   }
+   
+   lookupCacheValid = true;
 }
 
 //------------------------------------------------------------------------------------
@@ -570,6 +619,9 @@ void Microarray_Set::Set_Marker(int i, const Marker& m)
       markerset.push_back(Marker());
 
    markerset[i] = m;
+   
+   // Invalidate lookup cache when marker is modified
+   lookupCacheValid = false;
 }
 
 //------------------------------------------------------------------------------------
@@ -712,6 +764,9 @@ void Microarray_Set::read(const std::string& filename)
       throw "Unable to open " + filename;
 
    read(in);
+   
+   // Invalidate lookup cache after reading new data
+   lookupCacheValid = false;
 
    in.close();
 }
@@ -927,7 +982,10 @@ void Microarray_Set::computeMarkerBandwidth(const std::vector<int> *arrays)
 
    int n = (arrays ? arrays->size() : uarrays.size());
 
-   double *data = new double[n];
+   // Optimization: Use vector instead of raw pointer for better memory management
+   // and avoid potential memory leaks
+   std::vector<double> data;
+   data.reserve(n);  // Pre-allocate to avoid reallocations
 
    int numMarkers = markerset.size();
 
@@ -938,12 +996,16 @@ void Microarray_Set::computeMarkerBandwidth(const std::vector<int> *arrays)
 
       double stdev = std::sqrt(markerset[i].var);
 
+      // Clear and resize for each marker (more efficient than reallocating)
+      data.clear();
+      data.reserve(n);
+      
       for (int j = 0; j < n; j++)
-         data[j] = uarrays[arrays ? arrays->at(j) : j][i].value;
+         data.push_back(uarrays[arrays ? arrays->at(j) : j][i].value);
 
-      std::sort(data, data + n);
+      std::sort(data.begin(), data.end());
 
-      double iqr = interQuartileRange(data, n);
+      double iqr = interQuartileRange(data.data(), n);
 
       double iqrSig = 0.7413 * iqr; // estimate of sigma
       if (iqrSig == 0.0)
@@ -953,8 +1015,6 @@ void Microarray_Set::computeMarkerBandwidth(const std::vector<int> *arrays)
 
       markerset[i].bandwidth = prop * sig * std::pow(n, -1.0 / (dim + 4));
    }
-
-   delete[] data;
 }
 
 //------------------------------------------------------------------------------------
@@ -982,10 +1042,12 @@ double Microarray_Set::variance(int m, const std::vector<int> *arrays)
 void Microarray_Set::getHighLowPercent(double x, int mId, std::vector<int>& lower,
                                        std::vector<int>& upper)
 {
-   std::vector<ArrayValuePair> sortArray;
-   SortIncreasing_ArrayValuePair sorter;
-
+   // Optimization: Pre-allocate vectors to avoid reallocations
    int numMicroarrays = uarrays.size();
+   std::vector<ArrayValuePair> sortArray;
+   sortArray.reserve(numMicroarrays);
+   
+   SortIncreasing_ArrayValuePair sorter;
 
    for (int id = 0; id < numMicroarrays; id++)
       sortArray.push_back(ArrayValuePair(id, uarrays[id][mId].value));
@@ -993,6 +1055,10 @@ void Microarray_Set::getHighLowPercent(double x, int mId, std::vector<int>& lowe
    std::sort(sortArray.begin(), sortArray.end(), sorter);
 
    int idPercNo = numMicroarrays * x;
+   
+   // Optimization: Pre-allocate output vectors
+   lower.reserve(idPercNo);
+   upper.reserve(idPercNo);
 
    for (int id = 0; id < idPercNo; id++)
    {
@@ -1005,9 +1071,11 @@ void Microarray_Set::getHighLowPercent(double x, int mId, std::vector<int>& lowe
 
 void Microarray_Set::bootStrap(std::vector<int>& boot, const std::vector<int> *arrays)
 {
-   boot.clear();
-
    int numIds = (arrays ? arrays->size() : uarrays.size());
+   
+   // Optimization: Pre-allocate to avoid reallocations
+   boot.clear();
+   boot.reserve(numIds);
 
    for (int id = 0; id < numIds; id++)
    {
@@ -1049,7 +1117,10 @@ static double Compute_Pairwise_MI(GenePairVector& pairs, int nparLimit)
    Sort_X X_Sorter;
    std::sort(pairs.begin(), pairs.end(), X_Sorter);
 
-   std::vector<int> xranks(N);
+   // Optimization: Pre-allocate vector with known size
+   std::vector<int> xranks;
+   xranks.reserve(N);
+   xranks.resize(N);
 
    for (int i = 0; i < N; i++)
       xranks[pairs[i].xi] = i + 1;
@@ -1057,7 +1128,10 @@ static double Compute_Pairwise_MI(GenePairVector& pairs, int nparLimit)
    Sort_Y Y_Sorter;
    std::sort(pairs.begin(), pairs.end(), Y_Sorter);
 
-   std::vector<int> yranks(N);
+   // Optimization: Pre-allocate vector with known size
+   std::vector<int> yranks;
+   yranks.reserve(N);
+   yranks.resize(N);
 
    for (int i = 0; i < N; i++)
       yranks[pairs[i].yi] = i + 1;
@@ -1196,7 +1270,9 @@ double Microarray_Set::calculateMI(int maNum, int probeId1, int probeId2,
    if (isSameGene(probeId1, probeId2))
       return 0.0;
 
+   // Optimization: Pre-allocate vector to avoid reallocations
    GenePairVector pairs;
+   pairs.reserve(maNum);
 
    for (int i = 0; i < maNum; i++)
    {

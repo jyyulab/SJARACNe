@@ -9,6 +9,8 @@
 
 #include <iostream>
 #include <map>
+#include <unordered_map>
+#include <string>
 #include "param.h"
 
 typedef std::map<int, int> Transfac;
@@ -132,7 +134,7 @@ class Microarray_Set
 {
 public:
    Microarray_Set()
-      : markerset(), uarrays(), header() { }
+      : markerset(), uarrays(), header(), probeIdMap(), accessionIdMap(), lookupCacheValid(false) { }
 
    Marker_Set markerset;                 // Get_Num_Markers(), Get_Marker(),
                                          // Get_Marker_AffyId() gets marker's accnum,
@@ -140,6 +142,11 @@ public:
    Microarray_Vector uarrays;            // Get_Num_Microarrays(), Get_Microarray(),
                                          // Get_Probe(), Get_Value(), Get_PValue()
    std::vector<std::string> header;      // Get_Header(), Get_Array_Header()
+   
+   // Optimization: Hash maps for fast lookups
+   mutable std::unordered_map<std::string, int> probeIdMap;      // Cached probe ID lookups
+   mutable std::unordered_map<std::string, int> accessionIdMap; // Cached accession ID lookups
+   mutable bool lookupCacheValid;                                // Cache validity flag
 
    friend std::ostream& operator<<(std::ostream& out, const Microarray_Set& ms);
 
@@ -149,6 +156,7 @@ public:
 
    int  getAccessionId(const std::string& accnum) const; // formerly, get_Id()
    int  getProbeId(const std::string& label) const;
+   void rebuildLookupCache() const; // Rebuild hash maps for fast lookups
 
    void Set_ColHeader(int i, const std::string& hdr);
    void Set_Marker(int i, const Marker& m);
