@@ -102,6 +102,7 @@ input parameters and bootstrap parameters respectively.
 **Note:** for testing purpose, the number of bootstraps (```-n```) is set to 2, the consensus p-value threshold 
 ```-pc``` is set to 1.0 in the following examples. ```-n 100``` and ```-pc 1e-5``` are recommended for real 
 applications. Note that there is no / at the end of the -o option but there is a / at the end of the -tmp option.
+The default ```P-value``` for sjaracne is ```1e-7```. The minimum P-value accepted with the ```-pb argument is 1e-10```.
 
 ### Running on a single machine (Linux/OSX) 
 ```sjaracne local -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final -pc 1.0 -tmp ./test_data/outputs/cwl/cwltool/tmp/```
