@@ -29,6 +29,10 @@ inputs:
     type: float
     inputBinding:
       position: 4
+      valueFrom: |
+        ${
+          return inputs.p_value.toFixed(10); // Format to 10 decimal places (1e-10)
+        }
       prefix: -p
   tolerance:
     type: int
