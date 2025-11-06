@@ -1,12 +1,13 @@
 # SJARACNe
-[![Build Status](https://travis-ci.com/jyyulab/SJARACNe.svg?branch=master)](https://travis-ci.com/jyyulab/SJARACNe)
 
 SJARACNe is a scalable solution of ARACNe that dramatically improves the computational 
 performance, especially on the memory usage to allow even researchers with modest 
 computational power to generate networks from thousands of samples. The algorithm uses 
 adaptive partitioning mutual information to calculate the correlation between all pairs 
-of genes to reconstruct the regulatory network.
-
+of genes to reconstruct the regulatory network. 
+SJARACNe is now integrated into our latest framework, [scMINER](https://jyyulab.github.io/scMINER/), 
+for single-cell RNA-seq data analysis.
+Check out scMINER to learn how to use SJARACNe for analyzing single-cell RNA-seq data.
 
 ## Download
 ```git clone https://github.com/jyyulab/SJARACNe  # Clone the repo```
