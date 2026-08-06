@@ -108,6 +108,43 @@ class TestSubnetworkResolution(unittest.TestCase):
         self.assertNotIn("Cannot find probe", result.stdout)
         self.assertTrue(output.is_file())
 
+    def test_duplicate_subnetwork_hubs_are_computed_and_written_once(self):
+        hubs = self.workdir / "duplicate_hubs.txt"
+        hubs.write_bytes(b"A\n A \r\n\tA\t\r")
+
+        result, output = self.run_sjaracne("-s", str(hubs))
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"Subset of probes to reconstruct: {hubs} (1)", result.stdout)
+        self.assertIn("Duplicate subnetwork probes ignored: 2", result.stdout)
+        self.assertIn(
+            "[SUBNETWORK] Requested: 1, matched: 1, missing: 0", result.stdout
+        )
+        self.assertIn("Gene: 1", result.stdout)
+
+        source_rows = [
+            line
+            for line in output.read_text(encoding="utf-8").splitlines()
+            if line.split("\t", 1)[0] == "A"
+        ]
+        self.assertEqual(len(source_rows), 1)
+
+    def test_duplicate_tf_annotation_hubs_are_deduplicated(self):
+        subnet = self.workdir / "single_hub.txt"
+        subnet.write_text("A\n", encoding="utf-8")
+        tf_hubs = self.workdir / "duplicate_tf_hubs.txt"
+        tf_hubs.write_bytes(b"A\r\n A \nB\r\n\tB\t\r")
+
+        result, output = self.run_sjaracne(
+            "-s", str(subnet), "-l", str(tf_hubs)
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"[PARA] TF annotation list: {tf_hubs} (2)", result.stdout)
+        self.assertIn("Duplicate TF annotation probes ignored: 2", result.stdout)
+        self.assertNotIn("Cannot find probe", result.stdout)
+        self.assertTrue(output.is_file())
+
     def test_unresolved_subnetwork_fails_instead_of_running_all_genes(self):
         hubs = self.workdir / "missing_hubs.txt"
         hubs.write_text("NOT_IN_EXPRESSION\n", encoding="utf-8")
