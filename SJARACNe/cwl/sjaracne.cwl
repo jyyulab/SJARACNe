@@ -7,6 +7,9 @@ doc: Scalable solution of ARACNe that dramatically improves the computational pe
 baseCommand: sjaracne.exe
 
 inputs:
+  preflight_report:
+    type: File?
+    doc: Successful hub-overlap validation report; establishes a workflow dependency before bootstrapping
   exp_file:
     type: File
     inputBinding:

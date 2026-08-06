@@ -26,5 +26,15 @@ inputs:
       position: 2
       prefix: -g
       valueFrom: $(self.basename)
+  output_file:
+    type: string
+    default: hub_overlap_validation.txt
+    inputBinding:
+      position: 3
+      prefix: -o
 
-outputs: []
+outputs:
+  validation_report:
+    type: File
+    outputBinding:
+      glob: $(inputs.output_file)
