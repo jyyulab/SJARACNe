@@ -10,7 +10,7 @@ requirements:
     listing:
       - $(inputs.input_file)
 
-baseCommand: ch_line_ending.py
+baseCommand: [python3, -m, SJARACNe.bin.ch_line_ending]
 
 inputs:
   input_file:

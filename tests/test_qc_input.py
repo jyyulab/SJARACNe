@@ -120,6 +120,25 @@ class TestQCInput(unittest.TestCase):
             "preflight_report:\n    type: File?\n    doc:", bootstrap_tool
         )
 
+    def test_active_python_cwl_tools_do_not_depend_on_script_shebangs(self):
+        cwl_dir = PROJECT_ROOT / "SJARACNe" / "cwl"
+        expected_commands = {
+            "QC_input.cwl": "baseCommand: [python3, -m, SJARACNe.bin.QC_input]",
+            "ch_line_ending.cwl": (
+                "baseCommand: [python3, -m, SJARACNe.bin.ch_line_ending]"
+            ),
+            "create_consensus_network.cwl": (
+                "baseCommand: [python3, -m, SJARACNe.bin.create_consensus_network]"
+            ),
+        }
+
+        for filename, expected in expected_commands.items():
+            with self.subTest(filename=filename):
+                self.assertIn(
+                    expected,
+                    (cwl_dir / filename).read_text(encoding="utf-8"),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

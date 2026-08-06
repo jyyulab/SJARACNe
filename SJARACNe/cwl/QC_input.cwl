@@ -11,7 +11,7 @@ requirements:
       - $(inputs.exp_file)
       - $(inputs.probe_file)
 
-baseCommand: QC_input.py
+baseCommand: [python3, -m, SJARACNe.bin.QC_input]
 
 inputs:
   exp_file:
