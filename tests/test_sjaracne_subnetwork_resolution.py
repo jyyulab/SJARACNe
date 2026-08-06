@@ -80,6 +80,34 @@ class TestSubnetworkResolution(unittest.TestCase):
         self.assertIn("Gene: 1", result.stdout)
         self.assertTrue(output.is_file())
 
+    def test_subnetwork_list_normalizes_bom_whitespace_blank_lines_and_endings(self):
+        hubs = self.workdir / "normalized_hubs.txt"
+        hubs.write_bytes(b"\xef\xbb\xbf  A  \r\n\r\n\tB\t\r C \n")
+
+        result, output = self.run_sjaracne("-s", str(hubs))
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "[SUBNETWORK] Requested: 3, matched: 3, missing: 0", result.stdout
+        )
+        self.assertIn("Gene: 3", result.stdout)
+        self.assertNotIn("Cannot find probe", result.stdout)
+        self.assertTrue(output.is_file())
+
+    def test_tf_annotation_list_uses_the_same_normalization(self):
+        hubs = self.workdir / "normalized_tf_hubs.txt"
+        hubs.write_bytes(b"\xef\xbb\xbf\tA \r\n\r\n B\t\r")
+
+        result, output = self.run_sjaracne("-s", str(hubs), "-l", str(hubs))
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"[PARA] TF annotation list: {hubs} (2)", result.stdout)
+        self.assertIn(
+            "[SUBNETWORK] Requested: 2, matched: 2, missing: 0", result.stdout
+        )
+        self.assertNotIn("Cannot find probe", result.stdout)
+        self.assertTrue(output.is_file())
+
     def test_unresolved_subnetwork_fails_instead_of_running_all_genes(self):
         hubs = self.workdir / "missing_hubs.txt"
         hubs.write_text("NOT_IN_EXPRESSION\n", encoding="utf-8")

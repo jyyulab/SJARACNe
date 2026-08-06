@@ -8,7 +8,6 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include "param.h"
 
 //------------------------------------------------------------------------------------
@@ -105,32 +104,62 @@ void checkParameter(Parameter &p)
 }
 
 //------------------------------------------------------------------------------------
-// readProbeList() reads the list of nodes to be included in constructing a subnetwork
+// appendProbeId() normalizes and stores one identifier from a hub-list record.
+
+static void appendProbeId(std::string gid, bool first_record,
+                          std::vector<std::string>& probe_list)
+{
+   const std::string utf8_bom("\xEF\xBB\xBF", 3);
+
+   if (first_record && gid.compare(0, utf8_bom.length(), utf8_bom) == 0)
+      gid.erase(0, utf8_bom.length());
+
+   const std::string whitespace(" \t\n\r\f\v");
+   std::string::size_type first = gid.find_first_not_of(whitespace);
+
+   if (first == std::string::npos)
+      return;
+
+   std::string::size_type last = gid.find_last_not_of(whitespace);
+   gid = gid.substr(first, last - first + 1);
+
+   probe_list.push_back("_" + gid);
+}
+
+//------------------------------------------------------------------------------------
+// readProbeList() reads and normalizes the list of nodes used by -s and -l.
 
 static int readProbeList(const std::string& infilename,
                          std::vector<std::string>& probe_list)
 {
-   std::ifstream in(infilename.c_str());
+   std::ifstream in(infilename.c_str(), std::ios::binary);
    if (!in.is_open())
       throw "Unable to open " + infilename;
 
    std::string line;
-   int lnum = 0;
+   bool first_record = true;
+   char c;
 
-   while (in.good() && in.peek() != EOF && in.peek() != '\012')
+   while (in.get(c))
    {
-      std::getline(in, line);
-      std::istringstream sin(line);
-      std::string gid;
-      std::getline(sin, gid);
-      gid = "_" + gid;
-      probe_list.push_back(gid);
-      lnum++;
+      if (c == '\n' || c == '\r')
+      {
+         appendProbeId(line, first_record, probe_list);
+         line.clear();
+         first_record = false;
+
+         // Consume LF as part of a CRLF delimiter. A lone CR is also a valid
+         // delimiter, which keeps classic Mac and mixed-ending files readable.
+         if (c == '\r' && in.peek() == '\n')
+            in.get(c);
+      }
+      else
+         line += c;
    }
 
-   in.close();
+   appendProbeId(line, first_record, probe_list);
 
-   return lnum;
+   return probe_list.size();
 }
 
 //------------------------------------------------------------------------------------
