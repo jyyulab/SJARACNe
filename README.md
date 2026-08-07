@@ -106,10 +106,10 @@ applications. Note that there is no / at the end of the -o option but there is a
 The default ```P-value``` for sjaracne is ```1e-7```. The minimum P-value accepted with the ```-pb argument is 1e-10```.
 
 ### Running on a single machine (Linux/OSX) 
-```sjaracne local -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final -pc 1.0 -tmp ./test_data/outputs/cwl/cwltool/tmp/```
+```sjaracne local -e ./tests/inputs/BRCA100.exp -g ./tests/inputs/BRCA100_TF.txt -n 2 -o ./results/SJARACNE_out.final -pc 1.0 -tmp ./results/tmp/```
 
 ### Running on an IBM LSF cluster
-```sjaracne lsf -j ./SJARACNe/config/config_cwlexec.json -e ./test_data/inputs/BRCA100.exp -g ./test_data/inputs/tf.txt -n 2 -o ./test_data/outputs/cwl/cwltool/SJARACNE_out.final -pc 1.0```
+```sjaracne lsf -j ./SJARACNe/config/config_cwlexec.json -e ./tests/inputs/BRCA100.exp -g ./tests/inputs/BRCA100_TF.txt -n 2 -o ./results/SJARACNE_out.final -pc 1.0```
 
 
 ## Reference
