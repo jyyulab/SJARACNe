@@ -3,7 +3,7 @@
 cwlVersion: v1.0
 class: CommandLineTool
 
-baseCommand: create_consensus_network.py
+baseCommand: [python3, -m, SJARACNe.bin.create_consensus_network]
 
 inputs:
   adjmat_dir:

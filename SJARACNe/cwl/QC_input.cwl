@@ -11,7 +11,7 @@ requirements:
       - $(inputs.exp_file)
       - $(inputs.probe_file)
 
-baseCommand: QC_input.py
+baseCommand: [python3, -m, SJARACNe.bin.QC_input]
 
 inputs:
   exp_file:
@@ -26,5 +26,15 @@ inputs:
       position: 2
       prefix: -g
       valueFrom: $(self.basename)
+  output_file:
+    type: string
+    default: hub_overlap_validation.txt
+    inputBinding:
+      position: 3
+      prefix: -o
 
-outputs: []
+outputs:
+  validation_report:
+    type: File
+    outputBinding:
+      glob: $(inputs.output_file)

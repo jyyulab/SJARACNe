@@ -55,8 +55,9 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
     total_mi = {}
 
     # Processing all bootstrap networks, summarizing them into corresponding variables
-    for adj_file in os.listdir(adjmat_dir):
-        total_edge_in_runs.append(0)
+    for adj_file in sorted(os.listdir(adjmat_dir)):
+        edges_in_run = {}
+        duplicate_edge_count = 0
         # Opening each bootstrap file
         with open(pathlib.PurePath(adjmat_dir).joinpath(adj_file), "r") as fadj:
             for line in fadj:
@@ -72,21 +73,42 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
                     # the corresponding value to the edge between the hub gene and the gene with an odd index
                     # appearing before the value in the tokens list
                     for index in range(1, len(tokens), 2):
-                        key = hub_id + "----" + tokens[index]  # Creating a key for the edge
-                        if key in total_edge_number:
-                            # Updating the total number of edges observed for the particular key (edge)
-                            total_edge_number[key] += 1
-                            # Updating total MI between the genes involving in the particular key (edge)
-                            total_mi[key] += float(tokens[index + 1])
-                        else:
-                            # Initializing the total number of edges observed for the particular key (edge)
-                            # if the key (edge) is newly generated
-                            total_edge_number[key] = 1
-                            # Initializing total MI between the genes involving in the particular key (edge)
-                            # if the key (edge) is newly generated
-                            total_mi[key] = float(tokens[index + 1])
-                        # Increment the total number of edges processed so far for a bootstrap run
-                        total_edge_in_runs[bootstrap_run_num] += 1
+                        key = (hub_id, tokens[index])  # Ordered source-target edge
+                        mi = float(tokens[index + 1])
+
+                        if not math.isfinite(mi):
+                            raise ValueError(
+                                "Non-finite MI value for edge {}----{} in bootstrap "
+                                "file '{}': {}".format(key[0], key[1], adj_file, mi)
+                            )
+
+                        if key in edges_in_run:
+                            duplicate_edge_count += 1
+                            if edges_in_run[key] != mi:
+                                raise ValueError(
+                                    "Conflicting MI values for duplicate edge {}----{} in bootstrap "
+                                    "file '{}': {} versus {}".format(
+                                        key[0], key[1], adj_file, edges_in_run[key], mi
+                                    )
+                                )
+                            continue
+
+                        edges_in_run[key] = mi
+
+        if duplicate_edge_count:
+            logging.warning(
+                "Ignored %d duplicate edge occurrence(s) in bootstrap file '%s'",
+                duplicate_edge_count,
+                adj_file,
+            )
+
+        total_edge_in_runs.append(len(edges_in_run))
+        for key, mi in edges_in_run.items():
+            # A bootstrap is one Bernoulli observation for an edge, regardless
+            # of how many times a malformed file repeats that edge.
+            total_edge_number[key] = total_edge_number.get(key, 0) + 1
+            total_mi[key] = total_mi.get(key, 0.0) + mi
+
         # Increment the bootstrap file index
         bootstrap_run_num += 1
 
@@ -128,9 +150,7 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
         # Iterate over all edges in a sorted fashion
         for key in sorted(total_edge_number.keys()):
             # Extract first two gene involving an edge from the key (edge)
-            tks = key.split('----')
-            gene1 = tks[0]
-            gene2 = tks[1]
+            gene1, gene2 = key
 
             # Compute the z score of normal distribution
             z = float(total_edge_number[key] - mu) / float(sigma) if sigma != 0 else 100

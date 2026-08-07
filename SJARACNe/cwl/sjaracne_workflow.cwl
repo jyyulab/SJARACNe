@@ -49,7 +49,7 @@ steps:
     in:
       exp_file: exp_file
       probe_file: probe_file
-    out: []
+    out: [validation_report]
 
   # Step 1: create seeds from bootstrap number
   create_seeds:
@@ -83,6 +83,7 @@ steps:
   bootstrap:
     run: sjaracne.cwl
     in:
+      preflight_report: validate_files/validation_report
       exp_file: ch_ending_exp/out_file
       probe_file_tf: ch_ending_probe/out_file
       probe_file_subnetwork: ch_ending_probe/out_file
