@@ -190,6 +190,11 @@ void Matrix::read(Microarray_Set& data, const Parameter& p)
 
 void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
 {
+   // The expression matrix defines the complete gene-ID space.  Pre-sizing
+   // prevents sparse -j inputs from leaving requested rows out of bounds.
+   nmv.assign(data.markerset.size(), NodeMap());
+   adjacencyRowsPresent.assign(data.markerset.size(), false);
+
    std::string line;
 
    std::getline(in, line);
@@ -209,9 +214,7 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
          throw "Cannot find marker: " + label + " in the ADJ file!";
 
       data.markerset[geneId1].isActive = true;
-
-      while (nmv.size() <= geneId1)
-         nmv.push_back(NodeMap());
+      adjacencyRowsPresent[geneId1] = true;
 
       std::getline(sin, label, '\t');
       label = "_" + label;
@@ -230,9 +233,6 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
             if (geneId2 == -1)
                throw "Cannot find marker: " + label + " in the ADJ file!";
 
-            while (nmv.size() <= geneId2)
-               nmv.push_back(NodeMap());
-
             saveNode(geneId1, geneId2, mi);
          }
 
@@ -242,6 +242,15 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
 
       std::getline(in, line);
    }
+}
+
+//------------------------------------------------------------------------------------
+
+bool Matrix::hasAdjacencyRow(int geneId) const
+{
+   return geneId >= 0 &&
+          static_cast<std::size_t>(geneId) < adjacencyRowsPresent.size() &&
+          adjacencyRowsPresent[geneId];
 }
 
 //------------------------------------------------------------------------------------

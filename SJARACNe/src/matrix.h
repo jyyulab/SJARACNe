@@ -44,9 +44,11 @@ class Matrix
 {
 public:
    Matrix()
-      : nmv(), writeTriangular(false), writeReduced(false), writeEmptyGenes(false) { }
+      : nmv(), adjacencyRowsPresent(), writeTriangular(false),
+        writeReduced(false), writeEmptyGenes(false) { }
 
    NodeMapVector nmv;
+   std::vector<bool> adjacencyRowsPresent;
 
    bool writeTriangular; // if true, only triangular half of matrix will be written
    bool writeReduced;    // if true, intermediate nodes will be written
@@ -56,6 +58,7 @@ public:
 
    void read(Microarray_Set& data, const Parameter& p);
    void read(std::istream& in, Microarray_Set& data, const Parameter& p);
+   bool hasAdjacencyRow(int geneId) const;
 
    void writeGeneLine(std::ostream& out, const Microarray_Set& data, int geneId);
    void writeGeneList(const Microarray_Set& data, const std::string& name,
