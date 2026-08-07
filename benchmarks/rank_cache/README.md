@@ -1,9 +1,14 @@
 # Adaptive-partitioning MI rank-cache benchmark data
 
 This benchmark isolates the cost of pairwise adaptive-partitioning mutual
-information (AP-MI). It is intended to measure the proposed change from sorting
-the same gene once per candidate edge to ranking each gene once per bootstrap.
+information (AP-MI). It measures the change from sorting the same gene once per
+candidate edge to ranking each gene once per bootstrap.
 It is not a DPI benchmark.
+
+The first matched before/after results are recorded in
+[`RESULTS_2026-08-07.md`](RESULTS_2026-08-07.md), with machine-readable summaries
+in [`results_2026-08-07.csv`](results_2026-08-07.csv) and individual timing
+records in [`raw_timings_2026-08-07.csv`](raw_timings_2026-08-07.csv).
 
 ## Storage policy
 
