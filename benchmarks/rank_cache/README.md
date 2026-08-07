@@ -10,6 +10,26 @@ The first matched before/after results are recorded in
 in [`results_2026-08-07.csv`](results_2026-08-07.csv) and individual timing
 records in [`raw_timings_2026-08-07.csv`](raw_timings_2026-08-07.csv).
 
+## Performance figures
+
+The plotting script reads the tracked summary and raw timing tables, checks that
+their medians agree, and writes 300-dpi PNG plus editable SVG figures:
+
+```bash
+python benchmarks/rank_cache/plot_rank_cache_results.py
+```
+
+The script requires Matplotlib and creates three complementary figures under
+`figures/`:
+
+- `rank_cache_runtime_sweeps`: absolute wall time before and after rank caching
+- `rank_cache_speedup_sweeps`: fold speedup across hub, observation, and gene
+  sweeps
+- `rank_cache_memory_overhead`: the corresponding peak-RSS trade-off
+
+The figures distinguish the single-run 19,936-gene stress case and state that
+the benchmark isolates AP-MI rather than the complete SJARACNe workflow.
+
 ## Storage policy
 
 The generator, specification, and small tie-heavy correctness fixture are
