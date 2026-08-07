@@ -201,6 +201,19 @@ void runStandard(int argc, char *argv[])
       nsample = arrays->size();
    }
 
+   if (nsample < 2)
+   {
+      std::ostringstream s;
+      s << "At least 2 observations are required for MI calculation; found "
+        << nsample;
+
+      if (arrays != NULL)
+         s << " after conditional selection";
+
+      s << ".";
+      throw s.str();
+   }
+
    std::cout << "Marker No: " << data.markerset.size()
              << " (" << data.Get_Num_Active_Markers() << " active)"
              << ", Array No: " << nsample << std::endl;

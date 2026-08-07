@@ -5,7 +5,9 @@
 //------------------------------------------------------------------------------------
 
 #include <algorithm>
+#include <cerrno>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -163,6 +165,9 @@ std::ostream& operator<<(std::ostream& out, const Microarray_Set& ms)
 
 void Matrix::saveNode(int i, int j, double mi)
 {
+   if (!std::isfinite(mi))
+      throw std::string("Refusing to store a non-finite MI value.");
+
    NodeMap& nmap = nmv[i];
 
    NodeMap::iterator npos = nmap.find(j);
@@ -184,6 +189,43 @@ void Matrix::read(Microarray_Set& data, const Parameter& p)
    read(in, data, p);
 
    in.close();
+}
+
+//------------------------------------------------------------------------------------
+
+static double parseMutualInformation(const std::string& text,
+                                     const std::string& source,
+                                     const std::string& target,
+                                     const std::string& filename)
+{
+   const char *begin = text.c_str();
+   char *end = NULL;
+   errno = 0;
+
+   double mi = std::strtod(begin, &end);
+   const bool converted = (end != NULL && end != begin);
+
+   while (end != NULL && *end != '\0' &&
+          std::isspace(static_cast<unsigned char>(*end)))
+      end++;
+
+   std::ostringstream s;
+
+   if (!converted || end == NULL || *end != '\0' || errno == ERANGE)
+   {
+      s << "Invalid MI value \"" << text << "\" for edge " << source
+        << " -> " << target << " in adjacency file \"" << filename << "\".";
+      throw s.str();
+   }
+
+   if (!std::isfinite(mi))
+   {
+      s << "Non-finite MI value \"" << text << "\" for edge " << source
+        << " -> " << target << " in adjacency file \"" << filename << "\".";
+      throw s.str();
+   }
+
+   return mi;
 }
 
 //------------------------------------------------------------------------------------
@@ -225,7 +267,9 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
 
          std::getline(sin, value, '\t');
 
-         double mi = std::atof(value.c_str());
+         const std::string source = data.markerset[geneId1].accnum.substr(1);
+         const std::string target = label.substr(1);
+         double mi = parseMutualInformation(value, source, target, p.adjfile);
 
          if (mi >= p.threshold)
          {
@@ -635,6 +679,22 @@ int Microarray_Set::readMarkerWithPvalue(std::istream& in, const int arrno)
             default : pval = std::atof(sPVal.c_str());
          }
 
+         if (!std::isfinite(val))
+         {
+            std::ostringstream s;
+            s << "Non-finite expression value at gene row " << arrno + 1
+              << ", observation " << markern + 1 << ".";
+            throw s.str();
+         }
+
+         if (!std::isfinite(pval))
+         {
+            std::ostringstream s;
+            s << "Non-finite expression p-value at gene row " << arrno + 1
+              << ", observation " << markern + 1 << ".";
+            throw s.str();
+         }
+
          Set_Probe(markern++, arrno, Probe(val, pval));
       }
       while (in.good() && in.get() != '\015' && in.peek() != EOF &&
@@ -668,6 +728,14 @@ int Microarray_Set::readMarkerNoPvalue(std::istream& in, const int arrno)
          double val;
 
          in >> val;
+
+         if (!std::isfinite(val))
+         {
+            std::ostringstream s;
+            s << "Non-finite expression value at gene row " << arrno + 1
+              << ", observation " << markern + 1 << ".";
+            throw s.str();
+         }
 
          Set_Probe(markern++, arrno, Probe(val, 0.0));
       }
@@ -714,6 +782,19 @@ int Microarray_Set::readHeader(std::istream& in)
 
 //------------------------------------------------------------------------------------
 
+static void validateObservationCount(int expected, int actual, int lineNumber)
+{
+   if (actual != expected)
+   {
+      std::ostringstream s;
+      s << "Incorrect expression dimensions at line " << lineNumber
+        << ": expected " << expected << " observations, found " << actual << ".";
+      throw s.str();
+   }
+}
+
+//------------------------------------------------------------------------------------
+
 void Microarray_Set::read(const std::string& filename)
 {
    std::ifstream in(filename.c_str());
@@ -739,6 +820,14 @@ void Microarray_Set::read(std::istream& in)
       std::istringstream sin(line);
       int arrno = readHeader(sin);
 
+      if (arrno < 2)
+      {
+         std::ostringstream s;
+         s << "Expression matrix must contain at least 2 observation columns; found "
+           << arrno << ".";
+         throw s.str();
+      }
+
       // we need to decide whether the input file contain only expression
       // or (value, pvalue) pairs
 
@@ -753,6 +842,8 @@ void Microarray_Set::read(std::istream& in)
 
       std::cout << "\n[READ] " << bypass_line_cnt
                 << " Description lines bypassed." << std::endl;
+
+      const int firstDataLine = bypass_line_cnt + 2;
 
       std::istringstream pin(line);
       std::vector<std::string> firstprobe;
@@ -784,7 +875,9 @@ void Microarray_Set::read(std::istream& in)
 
          Marker m(proben, accnum, label);
          Set_Marker(proben, m);
-         readMarkerNoPvalue(fin, proben++);
+         int observations = readMarkerNoPvalue(fin, proben);
+         validateObservationCount(arrno, observations, firstDataLine);
+         proben++;
 
          while (in.good() && in.peek() != EOF)
          {
@@ -799,12 +892,9 @@ void Microarray_Set::read(std::istream& in)
             Marker m(proben, accnum, label);
             Set_Marker(proben, m);
 
-            if (readMarkerNoPvalue(sin, proben) != arrno)
-            {
-               std::ostringstream s;
-               s << "Incorrect data format at line no: " << proben + 2;
-               throw s.str();
-            }
+            int observations = readMarkerNoPvalue(sin, proben);
+            validateObservationCount(arrno, observations,
+                                     firstDataLine + proben);
 
             proben++;
          }
@@ -826,7 +916,9 @@ void Microarray_Set::read(std::istream& in)
 
          Marker m(proben, accnum, label);
          Set_Marker(proben, m);
-         readMarkerWithPvalue(fin, proben++);
+         int observations = readMarkerWithPvalue(fin, proben);
+         validateObservationCount(arrno, observations, firstDataLine);
+         proben++;
 
          while (in.good() && in.peek() != EOF)
          {
@@ -841,19 +933,23 @@ void Microarray_Set::read(std::istream& in)
             Marker m(proben, accnum, label);
             Set_Marker(proben, m);
 
-            if (readMarkerWithPvalue(sin, proben) != arrno)
-            {
-               std::ostringstream s;
-               s << "Incorrect data format at line no: " << proben + 2;
-               throw s.str();
-            }
+            int observations = readMarkerWithPvalue(sin, proben);
+            validateObservationCount(arrno, observations,
+                                     firstDataLine + proben);
 
             proben++;
          }
       }
       else
-         throw std::string("Incorrect file format: header line doesn't match the "
-                           "rest of the data.");
+      {
+         std::ostringstream s;
+         s << "Incorrect expression dimensions at line " << firstDataLine
+           << ": header declares " << arrno << " observations, but the first row "
+           << "contains " << valueNo << " data fields; expected " << arrno
+           << " expression values or " << 2 * arrno
+           << " expression/p-value fields.";
+         throw s.str();
+      }
    }
    catch (std::ios_base::failure& f)
    {
@@ -1219,6 +1315,16 @@ double Microarray_Set::calculateMI(int maNum, int probeId1, int probeId2,
 
    double mi = Compute_Pairwise_MI(pairs, nparLimit);
 
+   if (!std::isfinite(mi))
+   {
+      std::ostringstream s;
+      s << "Non-finite MI calculated for edge "
+        << markerset[probeId1].accnum.substr(1) << " -> "
+        << markerset[probeId2].accnum.substr(1) << " using " << maNum
+        << " observations.";
+      throw s.str();
+   }
+
    if (mi < threshold)
       return 0.0;
 
@@ -1232,7 +1338,19 @@ double Microarray_Set::calculateMI(int maNum, int probeId1, int probeId2,
 
    double value  = 1 + (std::exp(2 * mi) - 1) * (1 - 1 / lambda);
 
-   return (mi + 0.5 * std::log(value));
+   double correctedMi = mi + 0.5 * std::log(value);
+
+   if (!std::isfinite(correctedMi))
+   {
+      std::ostringstream s;
+      s << "Non-finite noise-corrected MI calculated for edge "
+        << markerset[probeId1].accnum.substr(1) << " -> "
+        << markerset[probeId2].accnum.substr(1) << " using " << maNum
+        << " observations.";
+      throw s.str();
+   }
+
+   return correctedMi;
 }
 
 //------------------------------------------------------------------------------------
