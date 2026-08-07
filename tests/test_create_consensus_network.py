@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
-import filecmp
 import tempfile
-import sys
 from pathlib import Path
 from SJARACNe.bin.create_consensus_network import create_consensus_network as cn
 from SJARACNe.bin.create_consensus_network import create_enhanced_consensus_network as ecn
@@ -17,21 +15,29 @@ class TestConsensusNetwork(unittest.TestCase):
         cn('./tests/inputs/adjmat_dir', 0.05, self.folder.name)
 
     def test_consensus_network_3col(self):
-        self.assertTrue(filecmp.cmp('./tests/answerkey/consensus_network_3col_.txt', self.folder.name + '/consensus_network_3col_.txt'))
+        expected = Path('./tests/answerkey/consensus_network_3col_.txt')
+        actual = Path(self.folder.name) / 'consensus_network_3col_.txt'
+        self.assertEqual(expected.read_text(encoding='utf-8'), actual.read_text(encoding='utf-8'))
         
     def test_bootstrap_info(self):
-        self.assertTrue(filecmp.cmp('./tests/answerkey/bootstrap_info_.txt', self.folder.name + '/bootstrap_info_.txt'))
+        expected = Path('./tests/answerkey/bootstrap_info_.txt')
+        actual = Path(self.folder.name) / 'bootstrap_info_.txt'
+        self.assertEqual(expected.read_text(encoding='utf-8'), actual.read_text(encoding='utf-8'))
 
-    def test_parameter_info(self):  
-        #delete last line of parameter info, as it will not match with answer key
-        with open(self.folder.name + '/parameter_info_.txt', 'r') as info:
-            lines = info.readlines()
-            lines = lines[:-1]
-            info.close()
-        with open(self.folder.name + '/parameter_info_.txt', 'w') as info:
-            info.writelines(lines)
-            info.close()
-        self.assertTrue(filecmp.cmp('./tests/answerkey/parameter_info_.txt', self.folder.name + '/parameter_info_.txt'))
+    def test_parameter_info(self):
+        expected = Path('./tests/answerkey/parameter_info_.txt').read_text(
+            encoding='utf-8'
+        ).splitlines()
+        output_network = Path(self.folder.name) / 'consensus_network_3col_.txt'
+        actual = (Path(self.folder.name) / 'parameter_info_.txt').read_text(
+            encoding='utf-8'
+        ).splitlines()
+
+        self.assertEqual(
+            actual[-1],
+            f'>  Output network: {output_network}',
+        )
+        self.assertEqual(expected, actual[:-1])
 
     '''    
     def test_enhanced_consensus_network(self):
