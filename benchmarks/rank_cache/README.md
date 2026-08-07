@@ -94,6 +94,8 @@ with `fixtures/tied_hubs.txt`, a fixed seed, `-t 0`, and `-e 1` to compare MI
 values and edge sets before and after the rank-cache refactor.
 `fixtures/tied_seed17_reference.tsv` records the current Linux baseline for
 `-S 17 -r 1`. The regression test compares numerical values with an explicit
-floating-point tolerance; output metadata contains paths and is not
-byte-compared wholesale. Keep the build and C runtime fixed when comparing
-bootstrap seeds because `std::rand()` is not portable across C runtimes.
+floating-point tolerance. A second reference covers conditioning followed by
+bootstrap resampling, where confusing original cell IDs with resample positions
+would change ranks. Output metadata contains paths and is not byte-compared
+wholesale. Keep the build and C runtime fixed when comparing bootstrap seeds
+because `std::rand()` is not portable across C runtimes.

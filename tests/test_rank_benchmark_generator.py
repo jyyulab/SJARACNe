@@ -3,6 +3,7 @@
 import csv
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -37,6 +38,9 @@ def find_sjaracne_executable():
 
 
 SJARACNE_EXE = find_sjaracne_executable()
+REFERENCE_RUNTIME_SUPPORTED = (
+    sys.platform.startswith("linux") and platform.libc_ver()[0] == "glibc"
+)
 
 
 class TestRankBenchmarkGenerator(unittest.TestCase):
@@ -201,9 +205,12 @@ class TestRankBenchmarkGenerator(unittest.TestCase):
         self.assertEqual(hashes_after, hashes_before)
 
 
-@unittest.skipUnless(SJARACNE_EXE, "sjaracne.exe is not built")
+@unittest.skipUnless(
+    SJARACNE_EXE and REFERENCE_RUNTIME_SUPPORTED,
+    "fixed bootstrap references require a Linux glibc build",
+)
 class TestRankBenchmarkCorrectnessFixture(unittest.TestCase):
-    def test_tied_bootstrap_seed_17_matches_reference_mi(self):
+    def assert_fixture_matches_reference(self, reference_name, *extra_args):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "network.adj"
             result = subprocess.run(
@@ -215,12 +222,11 @@ class TestRankBenchmarkCorrectnessFixture(unittest.TestCase):
                     str(FIXTURES / "tied_hubs.txt"),
                     "-S",
                     "17",
-                    "-r",
-                    "1",
                     "-t",
                     "0",
                     "-e",
                     "1",
+                    *extra_args,
                     "-o",
                     str(output),
                 ],
@@ -241,7 +247,7 @@ class TestRankBenchmarkCorrectnessFixture(unittest.TestCase):
                     actual[(source, fields[index])] = float(fields[index + 1])
 
             expected = {}
-            with (FIXTURES / "tied_seed17_reference.tsv").open(
+            with (FIXTURES / reference_name).open(
                 "r", encoding="utf-8", newline=""
             ) as handle:
                 for row in csv.DictReader(handle, delimiter="\t"):
@@ -250,6 +256,21 @@ class TestRankBenchmarkCorrectnessFixture(unittest.TestCase):
             self.assertEqual(set(actual), set(expected))
             for edge, expected_mi in expected.items():
                 self.assertAlmostEqual(actual[edge], expected_mi, places=6, msg=edge)
+
+    def test_tied_bootstrap_seed_17_matches_reference_mi(self):
+        self.assert_fixture_matches_reference(
+            "tied_seed17_reference.tsv", "-r", "1"
+        )
+
+    def test_conditional_bootstrap_ranks_match_reference_mi(self):
+        self.assert_fixture_matches_reference(
+            "tied_conditional_bootstrap_seed17_reference.tsv",
+            "-c",
+            "-_FOXP1",
+            "0.75",
+            "-r",
+            "1",
+        )
 
 
 if __name__ == "__main__":
