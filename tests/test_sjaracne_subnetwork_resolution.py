@@ -108,8 +108,20 @@ class TestSubnetworkResolution(unittest.TestCase):
         self.assertNotIn("Cannot find probe", result.stdout)
         self.assertTrue(output.is_file())
 
-    def test_duplicate_subnetwork_hubs_are_computed_and_written_once(self):
-        hubs = self.workdir / "duplicate_hubs.txt"
+    def test_duplicate_subnetwork_hub_matches_single_hub_output(self):
+        hubs = self.workdir / "equivalent_hubs.txt"
+        hubs.write_text("A\n", encoding="utf-8")
+
+        single_result, output = self.run_sjaracne("-s", str(hubs))
+
+        self.assertEqual(
+            single_result.returncode,
+            0,
+            single_result.stdout + single_result.stderr,
+        )
+        self.assertTrue(output.is_file())
+        single_hub_output = output.read_bytes()
+
         hubs.write_bytes(b"A\n A \r\n\tA\t\r")
 
         result, output = self.run_sjaracne("-s", str(hubs))
@@ -121,6 +133,7 @@ class TestSubnetworkResolution(unittest.TestCase):
             "[SUBNETWORK] Requested: 1, matched: 1, missing: 0", result.stdout
         )
         self.assertIn("Gene: 1", result.stdout)
+        self.assertEqual(output.read_bytes(), single_hub_output)
 
         source_rows = [
             line

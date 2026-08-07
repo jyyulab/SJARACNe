@@ -112,6 +112,20 @@ class TestAdjacencyInput(unittest.TestCase):
         self.assertTrue(output.is_file())
         self.assertEqual(self.data_rows(output), ["A\tB\t0.5"])
 
+    def test_three_gene_dpi_triangle_prunes_the_weakest_edge(self):
+        result, output = self.run_sjaracne(
+            "A\tB\t0.2\tC\t0.8\n"
+            "B\tC\t0.7\n"
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("[NETWORK] Applying DPI", result.stdout)
+        self.assertTrue(output.is_file())
+        self.assertEqual(
+            self.data_rows(output),
+            ["A\tC\t0.8", "B\tC\t0.7"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
