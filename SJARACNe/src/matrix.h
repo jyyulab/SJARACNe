@@ -178,13 +178,18 @@ public:
    void bootStrap(std::vector<int>& boot, const std::vector<int> *arrays);
    void addNoise();
 
+private:
    double calculateMI(int maNum, int probeId1, int probeId2, double threshold,
                       double noise2, int nparLimit,
-                      const std::vector<int> *arrays) const;
+                      const std::vector<int>& rankCache,
+                      const std::vector<int>& rankRows) const;
    void computeOneRow(int maNum, Matrix& matrix, double threshold, int row_idx,
-                      int numMarkers, int controlId, const std::vector<int> *arrays,
-                      bool half_matrix, bool symmetric, double noise2,
-                      int nparLimit) const;
+                      int numMarkers, int controlId, bool half_matrix,
+                      bool symmetric, double noise2, int nparLimit,
+                      const std::vector<int>& rankCache,
+                      const std::vector<int>& rankRows) const;
+
+public:
    void createEdgeMatrix(int maNum, Matrix& matrix, double threshold, int controlId,
                          double noise2, int nparLimit, const std::vector<int>& ids,
                          const std::vector<int> *arrays) const;

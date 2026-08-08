@@ -1,0 +1,11 @@
+isoformId	geneSymbol	cell_01	cell_02	cell_03	cell_04	cell_05	cell_06	cell_07	cell_08	cell_09	cell_10	cell_11	cell_12	cell_13	cell_14	cell_15	cell_16
+FOXP1	FOXP1	0	0	1	1	2	2	3	3	4	4	5	5	6	6	7	7
+CDKN1A	CDKN1A	7	7	6	6	5	5	4	4	3	3	2	2	1	1	0	0
+TF_A	TF_A	0	1	0	1	2	3	2	3	4	5	4	5	6	7	6	7
+TF_B	TF_B	1	1	1	2	2	2	3	3	3	4	4	4	5	5	5	6
+TARGET_A	TARGET_A	0	2	0	2	0	2	1	3	1	3	1	3	2	4	2	4
+TARGET_B	TARGET_B	4	2	4	2	4	2	3	1	3	1	3	1	2	0	2	0
+TARGET_C	TARGET_C	0	0	0	1	1	1	0	0	2	2	2	3	3	3	2	2
+TARGET_D	TARGET_D	3	2	1	0	3	2	1	0	4	5	6	7	4	5	6	7
+TARGET_E	TARGET_E	1	0	2	1	3	2	4	3	5	4	6	5	7	6	8	7
+TARGET_F	TARGET_F	2	3	2	3	1	2	1	2	0	1	0	1	3	4	3	4

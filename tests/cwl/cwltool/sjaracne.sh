@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 
-export PATH=`pwd`/SJARACNe/bin:$PATH
-cwltool --outdir ./test_data/outputs/cwl ./SJARACNe/cwl/sjaracne.cwl ./test_data/inputs/cwl/sjaracne.yml
+export PATH="$(pwd)/SJARACNe/bin:$PATH"
+mkdir -p ./results/cwl/sjaracne
+cwltool --outdir ./results/cwl/sjaracne ./SJARACNe/cwl/sjaracne.cwl ./tests/inputs/cwl/brca_sjaracne.yml

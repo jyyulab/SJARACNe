@@ -15,7 +15,9 @@
 #include <functional>
 #include <ios>
 #include <iterator>
+#include <new>
 #include <sstream>
+#include <stdexcept>
 #include <iostream>
 #include "matrix.h"
 #include "util.h"
@@ -57,41 +59,26 @@ public:
 
 //------------------------------------------------------------------------------------
 
-class GenePair
+class RankedObservation
 {
 public:
-   GenePair()
-      : x(), y(), xi(), yi(), maId() { }
+   RankedObservation()
+      : value(), position() { }
 
-   GenePair(double inX, double inY, int inMaId)
-      : x(inX), y(inY), xi(), yi(), maId(inMaId) { }
+   RankedObservation(double inValue, int inPosition)
+      : value(inValue), position(inPosition) { }
 
-   double x;    // Get_X(), Set_X()
-   double y;    // Get_Y(), Set_Y()
-   int    xi;   // index of x; Get_XI(), Set_XI()
-   int    yi;   // index of y; Get_YI(), Set_YI()
-   int    maId; // Get_MaID(), Set_MaID()
+   double value;
+   int position;
 };
 
-typedef std::vector<GenePair> GenePairVector;
-
-typedef std::binary_function<GenePair, GenePair, bool> GenePairBinaryFunction;
-
-class Sort_X : GenePairBinaryFunction
+class Sort_RankedObservation
 {
 public:
-   bool operator()(const GenePair& a, const GenePair& b) const
+   bool operator()(const RankedObservation& a, const RankedObservation& b) const
    {
-      return (a.x < b.x || a.x == b.x && a.maId < b.maId);
-   }
-};
-
-class Sort_Y : GenePairBinaryFunction
-{
-public:
-   bool operator()(const GenePair& a, const GenePair& b) const
-   {
-      return (a.y < b.y || a.y == b.y && a.maId < b.maId);
+      return (a.value < b.value ||
+              (a.value == b.value && a.position < b.position));
    }
 };
 
@@ -1140,32 +1127,68 @@ void Microarray_Set::addNoise()
 
 //------------------------------------------------------------------------------------
 
-static double Compute_Pairwise_MI(GenePairVector& pairs, int nparLimit)
+static void BuildRankCache(const Microarray_Set& data, int maNum,
+                           const std::vector<int> *arrays,
+                           const std::vector<bool>& markersNeeded,
+                           std::vector<int>& rankRows,
+                           std::vector<int>& rankCache)
+{
+   // Ranks belong to the exact selected/bootstrap observation sequence.  Position,
+   // not original array ID, is the secondary sort key so repeated bootstrap
+   // observations retain the same tie behavior as the legacy per-edge sorts.
+   if (arrays != NULL && static_cast<int>(arrays->size()) != maNum)
+      throw std::string("Rank-cache observation count does not match array selection.");
+
+   const std::size_t numMarkers = data.markerset.size();
+
+   if (markersNeeded.size() != numMarkers)
+      throw std::string("Rank-cache marker selection has an invalid size.");
+
+   const std::size_t numRankedMarkers =
+      std::count(markersNeeded.begin(), markersNeeded.end(), true);
+
+   if (maNum <= 0 || numRankedMarkers > rankCache.max_size() / maNum)
+      throw std::string("Rank-cache dimensions are invalid or too large.");
+
+   rankRows.assign(numMarkers, -1);
+   rankCache.resize(numRankedMarkers * static_cast<std::size_t>(maNum));
+
+   if (numRankedMarkers == 0)
+      return;
+
+   std::vector<RankedObservation> observations(maNum);
+   Sort_RankedObservation sorter;
+   int rankRow = 0;
+
+   for (std::size_t marker = 0; marker < numMarkers; marker++)
+   {
+      if (!markersNeeded[marker])
+         continue;
+
+      rankRows[marker] = rankRow++;
+
+      for (int position = 0; position < maNum; position++)
+      {
+         int arrayId = (arrays ? arrays->at(position) : position);
+         observations[position] =
+            RankedObservation(data.uarrays[arrayId][marker].value, position);
+      }
+
+      std::sort(observations.begin(), observations.end(), sorter);
+
+      std::size_t offset = static_cast<std::size_t>(rankRows[marker]) * maNum;
+
+      for (int rank = 0; rank < maNum; rank++)
+         rankCache[offset + observations[rank].position] = rank + 1;
+   }
+}
+
+//------------------------------------------------------------------------------------
+
+static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
+                                  int nparLimit)
 {
    const int M = nparLimit;
-   const int N = pairs.size();
-
-   for (int i = 0; i < N; i++)
-   {
-      pairs[i].xi = i;
-      pairs[i].yi = i;
-   }
-
-   Sort_X X_Sorter;
-   std::sort(pairs.begin(), pairs.end(), X_Sorter);
-
-   std::vector<int> xranks(N);
-
-   for (int i = 0; i < N; i++)
-      xranks[pairs[i].xi] = i + 1;
-
-   Sort_Y Y_Sorter;
-   std::sort(pairs.begin(), pairs.end(), Y_Sorter);
-
-   std::vector<int> yranks(N);
-
-   for (int i = 0; i < N; i++)
-      yranks[pairs[i].yi] = i + 1;
 
    int npar = 1; maxNpar = 1;
    int run  = 0;
@@ -1293,7 +1316,8 @@ static double Compute_Pairwise_MI(GenePairVector& pairs, int nparLimit)
 
 double Microarray_Set::calculateMI(int maNum, int probeId1, int probeId2,
                                    double threshold, double noise2, int nparLimit,
-                                   const std::vector<int> *arrays) const
+                                   const std::vector<int>& rankCache,
+                                   const std::vector<int>& rankRows) const
 {
    // compute mutual information between two gene expression vectors;
    // zero is returned if there is no connection
@@ -1301,19 +1325,14 @@ double Microarray_Set::calculateMI(int maNum, int probeId1, int probeId2,
    if (isSameGene(probeId1, probeId2))
       return 0.0;
 
-   GenePairVector pairs;
+   if (rankRows[probeId1] < 0 || rankRows[probeId2] < 0)
+      throw std::string("Internal error: MI requested for an uncached marker rank.");
 
-   for (int i = 0; i < maNum; i++)
-   {
-      int index = (arrays ? arrays->at(i) : i);
+   std::size_t offset1 = static_cast<std::size_t>(rankRows[probeId1]) * maNum;
+   std::size_t offset2 = static_cast<std::size_t>(rankRows[probeId2]) * maNum;
 
-      double x = uarrays[index][probeId1].value;
-      double y = uarrays[index][probeId2].value;
-
-      pairs.push_back(GenePair(x, y, i));
-   }
-
-   double mi = Compute_Pairwise_MI(pairs, nparLimit);
+   double mi = Compute_Pairwise_MI(&rankCache[offset1], &rankCache[offset2],
+                                   maNum, nparLimit);
 
    if (!std::isfinite(mi))
    {
@@ -1357,8 +1376,10 @@ double Microarray_Set::calculateMI(int maNum, int probeId1, int probeId2,
 
 void Microarray_Set::computeOneRow(int maNum, Matrix& matrix, double threshold,
                                    int row_idx, int numMarkers, int controlId,
-                                   const std::vector<int> *arrays, bool half_matrix,
-                                   bool symmetric, double noise2, int nparLimit) const
+                                   bool half_matrix, bool symmetric, double noise2,
+                                   int nparLimit,
+                                   const std::vector<int>& rankCache,
+                                   const std::vector<int>& rankRows) const
 {
    // this function computes one row of the adjacency matrix; it is called by
    // createEdgeMatrix(); note that since the adjacency matrix is symmetric,
@@ -1369,7 +1390,7 @@ void Microarray_Set::computeOneRow(int maNum, Matrix& matrix, double threshold,
       if (j != controlId && markerset[j].isActive)
       {
          double edge = calculateMI(maNum, row_idx, j, threshold, noise2, nparLimit,
-                                   arrays);
+                                   rankCache, rankRows);
          if (edge != 0.0)
             matrix.addNode(row_idx, j, edge, symmetric);
       }
@@ -1394,6 +1415,60 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
    int count      = (ids.size() == 0 ? numMarkers : ids.size());
    int step       = std::ceil(0.1 * count);
 
+   std::vector<bool> markersNeeded(numMarkers, false);
+   bool hasSource = false;
+
+   if (ids.size() == 0)
+   {
+      for (int marker = 0; marker < numMarkers; marker++)
+         if (marker != controlId && markerset[marker].isActive)
+            hasSource = true;
+   }
+   else
+      for (std::vector<int>::const_iterator id = ids.begin(); id != ids.end(); ++id)
+         if (*id != controlId)
+         {
+            markersNeeded[*id] = true; // requested hubs may be inactive
+            hasSource = true;
+         }
+
+   if (hasSource)
+      for (int marker = 0; marker < numMarkers; marker++)
+         if (marker != controlId && markerset[marker].isActive)
+            markersNeeded[marker] = true;
+
+   std::size_t numRankedMarkers =
+      std::count(markersNeeded.begin(), markersNeeded.end(), true);
+   double rankCacheMiB = numRankedMarkers * static_cast<double>(maNum) *
+                         sizeof(int) / (1024.0 * 1024.0);
+
+   std::vector<int> rankRows;
+   std::vector<int> rankCache;
+
+   try
+   {
+      BuildRankCache(*this, maNum, arrays, markersNeeded, rankRows, rankCache);
+   }
+   catch (const std::bad_alloc&)
+   {
+      std::ostringstream s;
+      s << "Unable to allocate rank cache for " << numRankedMarkers << " genes x "
+        << maNum << " observations (" << rankCacheMiB << " MiB).";
+      throw s.str();
+   }
+   catch (const std::length_error&)
+   {
+      std::ostringstream s;
+      s << "Rank cache is too large for " << numRankedMarkers << " genes x "
+        << maNum << " observations (" << rankCacheMiB << " MiB).";
+      throw s.str();
+   }
+
+   std::time(&t2);
+   std::cout << "[MI] Cached ranks for " << numRankedMarkers << " genes x " << maNum
+             << " observations in " << std::difftime(t2, t1) << " seconds ("
+             << rankCacheMiB << " MiB)." << std::endl;
+
    if (ids.size() == 0) // all genes will be computed
    {
       matrix.createEntries(count);
@@ -1402,7 +1477,7 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
       {
          if (i != controlId && markerset[i].isActive)
             computeOneRow(maNum, matrix, threshold, i, numMarkers, controlId,
-                          arrays, true, true, noise2, nparLimit);
+                          true, true, noise2, nparLimit, rankCache, rankRows);
 
          if ((i + 1) % step == 0)
          {
@@ -1420,7 +1495,7 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
                matrix.nmv.push_back(NodeMap());
 
             computeOneRow(maNum, matrix, threshold, ids[i], numMarkers, controlId,
-                          arrays, false, false, noise2, nparLimit);
+                          false, false, noise2, nparLimit, rankCache, rankRows);
 
             if ((i + 1) % step == 0)
             {
