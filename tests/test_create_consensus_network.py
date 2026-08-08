@@ -4,6 +4,7 @@ import unittest
 import filecmp
 import tempfile
 import sys
+from pathlib import Path
 from SJARACNe.bin.create_consensus_network import create_consensus_network as cn
 from SJARACNe.bin.create_consensus_network import create_enhanced_consensus_network as ecn
 from SJARACNe.bin.create_consensus_network import uprob
@@ -50,6 +51,117 @@ class TestConsensusNetwork(unittest.TestCase):
 
     def test_uprob_neg1(self):
         self.assertAlmostEqual(0.841344680778, uprob(-1))
+
+
+class TestConsensusDuplicateEdges(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.workdir = Path(self.folder.name)
+
+    def tearDown(self):
+        self.folder.cleanup()
+
+    @staticmethod
+    def write_bootstrap(directory, filename, body):
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / filename).write_text(
+            ">  Input file test.exp\n" + body,
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def read_network(output_dir):
+        return (output_dir / "consensus_network_3col_.txt").read_text(
+            encoding="utf-8"
+        )
+
+    def test_duplicate_edge_occurrences_count_once_per_bootstrap(self):
+        clean_dir = self.workdir / "clean"
+        duplicate_dir = self.workdir / "duplicate"
+        clean_output = self.workdir / "clean_output"
+        duplicate_output = self.workdir / "duplicate_output"
+
+        self.write_bootstrap(clean_dir, "run_1.adj", "A\tB\t0.5\tC\t0.2\n")
+        self.write_bootstrap(clean_dir, "run_2.adj", "A\tB\t0.7\n")
+        self.write_bootstrap(
+            duplicate_dir,
+            "run_1.adj",
+            "A\tB\t0.5\tB\t0.5\tC\t0.2\nA\tB\t0.5\n",
+        )
+        self.write_bootstrap(duplicate_dir, "run_2.adj", "A\tB\t0.7\n")
+
+        cn(clean_dir, 1.0, clean_output)
+        with self.assertLogs(level="WARNING") as logs:
+            cn(duplicate_dir, 1.0, duplicate_output)
+
+        self.assertIn("Ignored 2 duplicate edge occurrence(s)", "\n".join(logs.output))
+        self.assertEqual(
+            self.read_network(duplicate_output), self.read_network(clean_output)
+        )
+        self.assertIn("A\tB\t0.6000\n", self.read_network(duplicate_output))
+        self.assertEqual(
+            (duplicate_output / "bootstrap_info_.txt").read_text(encoding="utf-8"),
+            (clean_output / "bootstrap_info_.txt").read_text(encoding="utf-8"),
+        )
+
+    def test_conflicting_duplicate_mi_values_fail_closed(self):
+        adjacency_dir = self.workdir / "conflicting"
+        output_dir = self.workdir / "output"
+        self.write_bootstrap(
+            adjacency_dir,
+            "run_1.adj",
+            "A\tB\t0.5\nA\tB\t0.6\n",
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Conflicting MI values for duplicate edge A----B.*0.5 versus 0.6",
+        ):
+            cn(adjacency_dir, 1.0, output_dir)
+
+        self.assertFalse((output_dir / "consensus_network_3col_.txt").exists())
+
+    def test_equivalent_mi_text_is_an_exact_numeric_duplicate(self):
+        adjacency_dir = self.workdir / "equivalent"
+        output_dir = self.workdir / "output"
+        self.write_bootstrap(
+            adjacency_dir,
+            "run_1.adj",
+            "A\tB\t0.5\nA\tB\t0.5000\n",
+        )
+
+        with self.assertLogs(level="WARNING"):
+            cn(adjacency_dir, 1.0, output_dir)
+
+        self.assertIn("A\tB\t0.5000\n", self.read_network(output_dir))
+
+    def test_nonfinite_mi_fails_closed(self):
+        adjacency_dir = self.workdir / "nonfinite"
+        output_dir = self.workdir / "output"
+        self.write_bootstrap(adjacency_dir, "run_1.adj", "A\tB\tnan\n")
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Non-finite MI value for edge A----B.*nan",
+        ):
+            cn(adjacency_dir, 1.0, output_dir)
+
+        self.assertFalse((output_dir / "consensus_network_3col_.txt").exists())
+
+    def test_reverse_ordered_edge_is_not_treated_as_a_duplicate(self):
+        adjacency_dir = self.workdir / "directed"
+        output_dir = self.workdir / "output"
+        self.write_bootstrap(
+            adjacency_dir,
+            "run_1.adj",
+            "A\tB\t0.5\nB\tA\t0.7\n",
+        )
+
+        cn(adjacency_dir, 1.0, output_dir)
+
+        network = self.read_network(output_dir)
+        self.assertIn("A\tB\t0.5000\n", network)
+        self.assertIn("B\tA\t0.7000\n", network)
 
 if __name__ == '__main__':
     unittest.main()

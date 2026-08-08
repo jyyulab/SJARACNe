@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
-#include <sstream>
+#include <set>
 #include "param.h"
 
 //------------------------------------------------------------------------------------
@@ -105,32 +105,73 @@ void checkParameter(Parameter &p)
 }
 
 //------------------------------------------------------------------------------------
-// readProbeList() reads the list of nodes to be included in constructing a subnetwork
+// appendProbeId() normalizes and stores one identifier from a hub-list record.
+
+static void appendProbeId(std::string gid, bool first_record,
+                          std::vector<std::string>& probe_list,
+                          std::set<std::string>& seen,
+                          int& duplicate_count)
+{
+   const std::string utf8_bom("\xEF\xBB\xBF", 3);
+
+   if (first_record && gid.compare(0, utf8_bom.length(), utf8_bom) == 0)
+      gid.erase(0, utf8_bom.length());
+
+   const std::string whitespace(" \t\n\r\f\v");
+   std::string::size_type first = gid.find_first_not_of(whitespace);
+
+   if (first == std::string::npos)
+      return;
+
+   std::string::size_type last = gid.find_last_not_of(whitespace);
+   gid = gid.substr(first, last - first + 1);
+   gid = "_" + gid;
+
+   if (seen.insert(gid).second)
+      probe_list.push_back(gid);
+   else
+      duplicate_count++;
+}
+
+//------------------------------------------------------------------------------------
+// readProbeList() reads and normalizes the list of nodes used by -s and -l.
 
 static int readProbeList(const std::string& infilename,
-                         std::vector<std::string>& probe_list)
+                         std::vector<std::string>& probe_list,
+                         int& duplicate_count)
 {
-   std::ifstream in(infilename.c_str());
+   std::ifstream in(infilename.c_str(), std::ios::binary);
    if (!in.is_open())
       throw "Unable to open " + infilename;
 
-   std::string line;
-   int lnum = 0;
+   probe_list.clear();
+   duplicate_count = 0;
 
-   while (in.good() && in.peek() != EOF && in.peek() != '\012')
+   std::set<std::string> seen;
+   std::string line;
+   bool first_record = true;
+   char c;
+
+   while (in.get(c))
    {
-      std::getline(in, line);
-      std::istringstream sin(line);
-      std::string gid;
-      std::getline(sin, gid);
-      gid = "_" + gid;
-      probe_list.push_back(gid);
-      lnum++;
+      if (c == '\n' || c == '\r')
+      {
+         appendProbeId(line, first_record, probe_list, seen, duplicate_count);
+         line.clear();
+         first_record = false;
+
+         // Consume LF as part of a CRLF delimiter. A lone CR is also a valid
+         // delimiter, which keeps classic Mac and mixed-ending files readable.
+         if (c == '\r' && in.peek() == '\n')
+            in.get(c);
+      }
+      else
+         line += c;
    }
 
-   in.close();
+   appendProbeId(line, first_record, probe_list, seen, duplicate_count);
 
-   return lnum;
+   return probe_list.size();
 }
 
 //------------------------------------------------------------------------------------
@@ -154,8 +195,16 @@ void displayParameter(Parameter &p)
                 << p.correction << ")" << std::endl;
 
    if (p.subnetfile != "")
+   {
+      int duplicate_count = 0;
       std::cout << "[PARA] Subset of probes to reconstruct: " << p.subnetfile
-                << " (" << readProbeList(p.subnetfile, p.subnet) << ")" << std::endl;
+                << " (" << readProbeList(p.subnetfile, p.subnet, duplicate_count)
+                << ")" << std::endl;
+
+      if (duplicate_count > 0)
+         std::cout << "[PARA] Duplicate subnetwork probes ignored: "
+                   << duplicate_count << std::endl;
+   }
 
    if (p.hub != "")
       std::cout << "[PARA] Hub probe to reconstruct: " << p.hub << std::endl;
@@ -168,8 +217,16 @@ void displayParameter(Parameter &p)
    }
 
    if (p.annotfile != "")
+   {
+      int duplicate_count = 0;
       std::cout << "[PARA] TF annotation list: " << p.annotfile
-                << " (" << readProbeList(p.annotfile, p.tf_list) << ")" << std::endl;
+                << " (" << readProbeList(p.annotfile, p.tf_list, duplicate_count)
+                << ")" << std::endl;
+
+      if (duplicate_count > 0)
+         std::cout << "[PARA] Duplicate TF annotation probes ignored: "
+                   << duplicate_count << std::endl;
+   }
 
    if (p.mean != 0.0 || p.cv != 0.0)
    {

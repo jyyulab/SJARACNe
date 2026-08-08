@@ -124,7 +124,10 @@ Parameter parseParameter(int argc, char *argv[])
       case 'o': p.outfile    = ARGF(); break;            // output file
       case 'p': p.pvalue     = std::atof(ARGF()); break; // p-value
       case 'r': p.sample     = std::atoi(ARGF()); break; // bootstrap sample number
-      case 's': p.subnetfile = ARGF(); break;            // subset of probes
+      case 's': p.subnetfile = ARGF();                   // subset of probes
+                if (p.subnetfile == "")
+                   throw std::string("Option '-s' requires a subnetwork file.");
+                break;
       case 't': p.threshold  = std::atof(ARGF()); break; // mi threshold
       case 'v': p.verbose    = ARGF(); break;            // verbose
       default : throw std::string("unknown parameter ") + ARGC();
@@ -210,11 +213,6 @@ void runStandard(int argc, char *argv[])
                 << std::endl;
    }
 
-   if (p.correction != 0.0)
-      data.computeMarkerVariance(arrays);
-
-   data.computeMarkerBandwidth(arrays);
-
    std::vector<int> ids;
 
    if (p.hub != "")
@@ -232,16 +230,42 @@ void runStandard(int argc, char *argv[])
    }
 
    int numSubnets = p.subnet.size();
+   int numMissingSubnets = 0;
 
    for (int i = 0; i < numSubnets; i++)
    {
       int gid = data.getProbeId(p.subnet[i]);
       if (gid == -1)
+      {
          std::cout << "Cannot find probe: " << p.subnet[i] << " in \""
                    << p.subnetfile << "\" ... ignored." << std::endl;
+         numMissingSubnets++;
+      }
       else
          ids.push_back(gid);
    }
+
+   if (p.subnetfile != "")
+   {
+      std::cout << "[SUBNETWORK] Requested: " << numSubnets
+                << ", matched: " << ids.size()
+                << ", missing: " << numMissingSubnets << std::endl;
+
+      if (ids.size() == 0)
+      {
+         std::ostringstream s;
+         s << "Subnetwork file \"" << p.subnetfile << "\" was supplied, but zero "
+           << "probe IDs matched the first column of \"" << p.infile
+           << "\" (requested: " << numSubnets
+           << "). Refusing to construct an all-gene network.";
+         throw s.str();
+      }
+   }
+
+   if (p.correction != 0.0)
+      data.computeMarkerVariance(arrays);
+
+   data.computeMarkerBandwidth(arrays);
 
    Transfac transfac;
 
