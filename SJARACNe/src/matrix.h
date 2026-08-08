@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include "param.h"
 
 typedef std::map<int, int> Transfac;
@@ -135,7 +136,8 @@ class Microarray_Set
 {
 public:
    Microarray_Set()
-      : markerset(), uarrays(), header() { }
+      : markerset(), uarrays(), header(), accessionIds(),
+        accessionIdsCurrent(false) { }
 
    Marker_Set markerset;                 // Get_Num_Markers(), Get_Marker(),
                                          // Get_Marker_AffyId() gets marker's accnum,
@@ -179,6 +181,11 @@ public:
    void addNoise();
 
 private:
+   void rebuildAccessionIndex() const;
+
+   mutable std::unordered_map<std::string, int> accessionIds;
+   mutable bool accessionIdsCurrent;
+
    double calculateMI(int maNum, int probeId1, int probeId2, double threshold,
                       double noise2, int nparLimit,
                       const std::vector<int>& rankCache,
