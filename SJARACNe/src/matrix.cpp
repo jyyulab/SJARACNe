@@ -15,6 +15,7 @@
 #include <functional>
 #include <ios>
 #include <iterator>
+#include <limits>
 #include <new>
 #include <sstream>
 #include <stdexcept>
@@ -55,6 +56,89 @@ public:
    {
       return (a.value > b.value);
    }
+};
+
+//------------------------------------------------------------------------------------
+
+class DpiNeighborIndex
+{
+public:
+   explicit DpiNeighborIndex(const Matrix& matrix)
+      : rows(matrix.nmv), incomingForEmptyRows()
+   {
+      std::size_t nodeCount = std::max(matrix.nmv.size(),
+                                      matrix.adjacencyRowsPresent.size());
+
+      for (NodeMapVector::const_iterator row = rows.begin(); row != rows.end(); ++row)
+         if (!row->empty())
+         {
+            if (row->begin()->first < 0)
+               throw std::string(
+                  "Internal error: negative gene ID in adjacency matrix.");
+
+            int largestTarget = row->rbegin()->first;
+            nodeCount = std::max(nodeCount,
+                                 static_cast<std::size_t>(largestTarget) + 1);
+         }
+
+      if (rows.size() >
+          static_cast<std::size_t>(std::numeric_limits<int>::max()))
+         throw std::string(
+            "Internal error: adjacency matrix exceeds the supported gene-ID range.");
+
+      incomingForEmptyRows.resize(nodeCount);
+
+      for (std::size_t source = 0; source < rows.size(); ++source)
+         for (NodeMap::const_iterator edge = rows[source].begin();
+              edge != rows[source].end(); ++edge)
+         {
+            int target = edge->first;
+            bool targetHasRow = static_cast<std::size_t>(target) < rows.size() &&
+                                !rows[target].empty();
+
+            if (!targetHasRow)
+               incomingForEmptyRows[target].push_back(
+                  ArrayValuePair(static_cast<int>(source),
+                                 edge->second.mutinfo));
+         }
+   }
+
+   std::size_t nodeCount() const
+   {
+      return incomingForEmptyRows.size();
+   }
+
+   bool hasDirectRow(int geneId) const
+   {
+      return geneId >= 0 && static_cast<std::size_t>(geneId) < rows.size() &&
+             !rows[geneId].empty();
+   }
+
+   const NodeMap& directRow(int geneId) const
+   {
+      return rows[geneId];
+   }
+
+   const std::vector<ArrayValuePair>& incomingRow(int geneId) const
+   {
+      return incomingForEmptyRows[geneId];
+   }
+
+   std::size_t effectiveDegree(int geneId) const
+   {
+      if (hasDirectRow(geneId))
+         return directRow(geneId).size();
+
+      if (geneId >= 0 &&
+          static_cast<std::size_t>(geneId) < incomingForEmptyRows.size())
+         return incomingRow(geneId).size();
+
+      return 0;
+   }
+
+private:
+   const NodeMapVector& rows;
+   std::vector<std::vector<ArrayValuePair> > incomingForEmptyRows;
 };
 
 //------------------------------------------------------------------------------------
@@ -500,11 +584,65 @@ static bool protectedByTFLogic(Transfac &transfac,
 
 //------------------------------------------------------------------------------------
 
-void Matrix::reduceOneNode(int row_idx, double epsilon, Transfac& transfac)
+static int strongerNeighborCount(const std::vector<ArrayValuePair>& miVector,
+                                 int candidatePosition, double minMI)
 {
-   NodeMap& nmap = nmv[row_idx];
+   if (candidatePosition == 0 || miVector[0].value <= minMI)
+      return 0;
+
+   if (miVector[candidatePosition - 1].value > minMI)
+      return candidatePosition;
+
+   int lower = 0;
+   int upper = candidatePosition;
+
+   while (lower < upper)
+   {
+      int middle = lower + (upper - lower) / 2;
+
+      if (miVector[middle].value > minMI)
+         lower = middle + 1;
+      else
+         upper = middle;
+   }
+
+   return lower;
+}
+
+//------------------------------------------------------------------------------------
+
+static void considerDpiIntermediate(int geneId3, double valueBC,
+                                    int strongerCount, double minMI,
+                                    int row_idx, int geneId1,
+                                    const std::vector<int>& neighborPosition,
+                                    Transfac& transfac, int& bestPosition)
+{
+   if (geneId3 < 0 ||
+       static_cast<std::size_t>(geneId3) >= neighborPosition.size())
+      return;
+
+   int position = neighborPosition[geneId3];
+
+   if (position < 0 || position >= strongerCount || position >= bestPosition ||
+       valueBC <= minMI ||
+       (transfac.size() > 0 &&
+        protectedByTFLogic(transfac, row_idx, geneId1, geneId3)))
+      return;
+
+   bestPosition = position;
+}
+
+//------------------------------------------------------------------------------------
+
+static void reduceOneNodeByIntersection(
+   Matrix& matrix, int row_idx, double epsilon, Transfac& transfac,
+   const DpiNeighborIndex& neighborIndex,
+   std::vector<int>& neighborPosition)
+{
+   NodeMap& nmap = matrix.nmv[row_idx];
 
    std::vector<ArrayValuePair> miVector;
+   miVector.reserve(nmap.size());
 
    for (NodeMap::iterator npos = nmap.begin(); npos != nmap.end(); ++npos)
       miVector.push_back(ArrayValuePair(npos->first, npos->second.mutinfo));
@@ -514,35 +652,98 @@ void Matrix::reduceOneNode(int row_idx, double epsilon, Transfac& transfac)
 
    int numPairs = miVector.size();
 
+   for (int position = 0; position < numPairs; ++position)
+      neighborPosition[miVector[position].arrayId] = position;
+
    for (int i = 0; i < numPairs; i++)
    {
       int    geneId1 = miVector[i].arrayId;
       double valueAB = miVector[i].value;
-
       double minMI   = valueAB / (1.0 - epsilon);
 
-      for (int j = 0; j < i; j++)
+      int strongerCount = strongerNeighborCount(miVector, i, minMI);
+      if (strongerCount == 0)
+         continue;
+
+      int bestPosition = strongerCount;
+      std::size_t effectiveDegree = neighborIndex.effectiveDegree(geneId1);
+
+      if (static_cast<std::size_t>(strongerCount) <= effectiveDegree)
       {
-         int    geneId2 = miVector[j].arrayId;
-         double valueAC = miVector[j].value;
-
-         if (valueAC <= minMI)
-            break;
-
-         double valueBC = getNodeMI(geneId1, geneId2);
-
-         if (valueBC > minMI && (transfac.size() == 0 ||
-             !protectedByTFLogic(transfac, row_idx, geneId1, geneId2)))
+         // The stronger A-neighbor prefix is the smaller side of the
+         // intersection. Preserve its MI-descending order and stop at the first
+         // qualifying intermediate, exactly as the legacy loop did.
+         for (int j = 0; j < strongerCount; ++j)
          {
-            NodeMap::iterator npos = nmap.find(geneId1);
+            int geneId2 = miVector[j].arrayId;
+            double valueBC = matrix.getNodeMI(geneId1, geneId2);
 
-            if (npos != nmap.end())
-               npos->second.intermediate = geneId2;
-
-            break;
+            if (valueBC > minMI && (transfac.size() == 0 ||
+                !protectedByTFLogic(transfac, row_idx, geneId1, geneId2)))
+            {
+               bestPosition = j;
+               break;
+            }
          }
       }
+      else if (neighborIndex.hasDirectRow(geneId1))
+      {
+         // geneId1 has a stored source row, so getNodeMI() consults that row
+         // exclusively. Enumerate only its actual edges and intersect them with
+         // the stronger A-neighbor prefix.
+         const NodeMap& row = neighborIndex.directRow(geneId1);
+
+         for (NodeMap::const_iterator edge = row.begin(); edge != row.end(); ++edge)
+         {
+            considerDpiIntermediate(edge->first, edge->second.mutinfo,
+                                    strongerCount, minMI, row_idx, geneId1,
+                                    neighborPosition, transfac, bestPosition);
+
+            if (bestPosition == 0)
+               break;
+         }
+      }
+      else
+      {
+         // A missing/empty geneId1 row makes getNodeMI() fall back to incoming
+         // geneId2 -> geneId1 edges. The reverse index reproduces that behavior
+         // without probing every stronger A-neighbor.
+         const std::vector<ArrayValuePair>& row =
+            neighborIndex.incomingRow(geneId1);
+
+         for (std::vector<ArrayValuePair>::const_iterator edge = row.begin();
+              edge != row.end(); ++edge)
+         {
+            considerDpiIntermediate(edge->arrayId, edge->value,
+                                    strongerCount, minMI, row_idx, geneId1,
+                                    neighborPosition, transfac, bestPosition);
+
+            if (bestPosition == 0)
+               break;
+         }
+      }
+
+      if (bestPosition < strongerCount)
+      {
+         NodeMap::iterator npos = nmap.find(geneId1);
+
+         if (npos != nmap.end())
+            npos->second.intermediate = miVector[bestPosition].arrayId;
+      }
    }
+
+   for (int position = 0; position < numPairs; ++position)
+      neighborPosition[miVector[position].arrayId] = -1;
+}
+
+//------------------------------------------------------------------------------------
+
+void Matrix::reduceOneNode(int row_idx, double epsilon, Transfac& transfac)
+{
+   DpiNeighborIndex neighborIndex(*this);
+   std::vector<int> neighborPosition(neighborIndex.nodeCount(), -1);
+   reduceOneNodeByIntersection(*this, row_idx, epsilon, transfac,
+                               neighborIndex, neighborPosition);
 }
 
 //------------------------------------------------------------------------------------
@@ -552,19 +753,24 @@ void Matrix::reduce(double epsilon, const std::vector<int>& ids, Transfac& trans
    std::time_t t1, t2;
    std::time(&t1);
 
+   DpiNeighborIndex neighborIndex(*this);
+   std::vector<int> neighborPosition(neighborIndex.nodeCount(), -1);
+
    if (ids.size() == 0)
    {
       int numMarkers = nmv.size();
 
       for (int i = 0; i < numMarkers; i++)
-         reduceOneNode(i, epsilon, transfac);
+         reduceOneNodeByIntersection(*this, i, epsilon, transfac,
+                                     neighborIndex, neighborPosition);
    }
    else
    {
       int numIds = ids.size();
 
       for (int i = 0; i < numIds; i++)
-         reduceOneNode(ids[i], epsilon, transfac);
+         reduceOneNodeByIntersection(*this, ids[i], epsilon, transfac,
+                                     neighborIndex, neighborPosition);
    }
 
    std::time(&t2);
