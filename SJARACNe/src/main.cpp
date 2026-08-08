@@ -201,6 +201,19 @@ void runStandard(int argc, char *argv[])
       nsample = arrays->size();
    }
 
+   if (nsample < 2)
+   {
+      std::ostringstream s;
+      s << "At least 2 observations are required for MI calculation; found "
+        << nsample;
+
+      if (arrays != NULL)
+         s << " after conditional selection";
+
+      s << ".";
+      throw s.str();
+   }
+
    std::cout << "Marker No: " << data.markerset.size()
              << " (" << data.Get_Num_Active_Markers() << " active)"
              << ", Array No: " << nsample << std::endl;
@@ -284,7 +297,39 @@ void runStandard(int argc, char *argv[])
    Matrix matrix;
 
    if (p.adjfile != "")
+   {
       matrix.read(data, p);
+      std::vector<int> missingAdjacencyRows;
+
+      for (std::vector<int>::const_iterator id = ids.begin(); id != ids.end(); ++id)
+         if (!matrix.hasAdjacencyRow(*id))
+            missingAdjacencyRows.push_back(*id);
+
+      if (!missingAdjacencyRows.empty())
+      {
+         std::ostringstream s;
+         s << "Adjacency file \"" << p.adjfile
+           << "\" does not contain a source row for requested hub";
+
+         if (missingAdjacencyRows.size() > 1)
+            s << "s";
+
+         s << ": ";
+
+         for (std::vector<int>::size_type i = 0;
+              i < missingAdjacencyRows.size(); ++i)
+         {
+            if (i > 0)
+               s << ", ";
+
+            const Marker& marker = data.markerset[missingAdjacencyRows[i]];
+            s << marker.accnum.substr(1);
+         }
+
+         s << ". Refusing to treat absent adjacency rows as empty networks.";
+         throw s.str();
+      }
+   }
    else
    {
       std::vector<int> bs;

@@ -163,5 +163,75 @@ class TestConsensusDuplicateEdges(unittest.TestCase):
         self.assertIn("A\tB\t0.5000\n", network)
         self.assertIn("B\tA\t0.7000\n", network)
 
+
+class TestEmptyConsensusNetwork(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.workdir = Path(self.folder.name)
+        self.adjacency_dir = self.workdir / "bootstraps"
+        self.output_dir = self.workdir / "output"
+        self.expression = self.workdir / "small.exp"
+        self.expression.write_text(
+            "isoformId\tgeneSymbol\ts1\ts2\ts3\n"
+            "A\tA\t1\t2\t3\n",
+            encoding="utf-8",
+        )
+
+    def tearDown(self):
+        self.folder.cleanup()
+
+    def write_empty_bootstrap(self, filename):
+        self.adjacency_dir.mkdir(parents=True, exist_ok=True)
+        (self.adjacency_dir / filename).write_text(
+            ">  Input file test.exp\n>  Subnetwork file hubs.txt\n",
+            encoding="utf-8",
+        )
+
+    def test_empty_bootstrap_networks_produce_headers_and_metadata(self):
+        self.write_empty_bootstrap("run_1.adj")
+        self.write_empty_bootstrap("run_2.adj")
+
+        network = cn(self.adjacency_dir, 0.05, self.output_dir)
+        ecn(self.expression, network, self.output_dir)
+
+        self.assertEqual(
+            (self.output_dir / "consensus_network_3col_.txt").read_text(
+                encoding="utf-8"
+            ),
+            "source\ttarget\tMI\n",
+        )
+        self.assertEqual(
+            (self.output_dir / "consensus_network_ncol_.txt").read_text(
+                encoding="utf-8"
+            ),
+            "source\ttarget\tsource.symbol\ttarget.symbol\tMI\tpearson\t"
+            "spearman\tslope\tp-value\n",
+        )
+        self.assertEqual(
+            (self.output_dir / "bootstrap_info_.txt").read_text(encoding="utf-8"),
+            "Total edge tested: 0\n"
+            "Bonferroni corrected (0.05) alpha: N/A (no edges tested)\n"
+            "mu: 0.0\n"
+            "sigma: 0.0\n",
+        )
+
+        parameter_info = (self.output_dir / "parameter_info_.txt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(">  Input file test.exp\n", parameter_info)
+        self.assertIn(">  Subnetwork file hubs.txt\n", parameter_info)
+        self.assertIn(">  Bootstrap No: 2\n", parameter_info)
+        self.assertIn(">  Source: sjaracne2\n", parameter_info)
+
+    def test_missing_bootstrap_files_fail_clearly(self):
+        self.adjacency_dir.mkdir()
+
+        with self.assertRaisesRegex(ValueError, "No bootstrap adjacency files found"):
+            cn(self.adjacency_dir, 0.05, self.output_dir)
+
+        self.assertFalse(
+            (self.output_dir / "consensus_network_3col_.txt").exists()
+        )
+
 if __name__ == '__main__':
     unittest.main()

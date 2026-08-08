@@ -112,24 +112,38 @@ def create_consensus_network(adjmat_dir, p_value, out_dir):
         # Increment the bootstrap file index
         bootstrap_run_num += 1
 
-    mu = 0
-    sigma = 0
+    if bootstrap_run_num == 0:
+        raise ValueError(
+            "No bootstrap adjacency files found in '{}'.".format(adjmat_dir)
+        )
+
+    edge_count = len(total_edge_number)
+    mu = 0.0
+    sigma = 0.0
     # Computing mu and sigma across all bootstrap files
-    for i in range(0, bootstrap_run_num):
-        prob = float(total_edge_in_runs[i]) / float(len(total_edge_number))
-        mu += prob
-        sigma += prob * (1 - prob)
+    if edge_count > 0:
+        for i in range(0, bootstrap_run_num):
+            prob = float(total_edge_in_runs[i]) / float(edge_count)
+            mu += prob
+            sigma += prob * (1 - prob)
     sigma = np.sqrt(sigma)
+
+    if edge_count > 0:
+        bonferroni_alpha = 0.05 / edge_count
+        bonferroni_alpha_text = str(bonferroni_alpha)
+    else:
+        bonferroni_alpha = None
+        bonferroni_alpha_text = 'N/A (no edges tested)'
 
     # Writing out the summary of all bootstrap files into bootstrap_info.txt file
     with open(pathlib.PurePath(out_dir).joinpath('bootstrap_info_.txt'), 'w') as f_info:
-        f_info.write('Total edge tested: {}\n'.format(str(len(total_edge_number))))
-        f_info.write('Bonferroni corrected (0.05) alpha: {}\n'.format(str(0.05 / len(total_edge_number))))
+        f_info.write('Total edge tested: {}\n'.format(str(edge_count)))
+        f_info.write('Bonferroni corrected (0.05) alpha: {}\n'.format(bonferroni_alpha_text))
         f_info.write('mu: {}\n'.format(str(mu)))
         f_info.write('sigma: {}\n'.format(str(sigma)))
 
     # Setting p_threshold to the given value, if no given value, set to Bonferroni corrected value
-    p_threshold = 0.05 / len(total_edge_number)
+    p_threshold = bonferroni_alpha
     if p_value is not None:
         p_threshold = float(p_value)
 
