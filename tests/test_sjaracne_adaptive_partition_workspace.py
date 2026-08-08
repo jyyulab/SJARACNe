@@ -144,6 +144,40 @@ class TestAdaptivePartitionWorkspace(unittest.TestCase):
 
             self.assertEqual(networks[0], networks[1])
 
+    def test_mixed_leaf_and_recursive_quadrants_match_legacy_mi(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "mixed_quadrants.adj"
+            result = subprocess.run(
+                [
+                    SJARACNE_EXE,
+                    "-i",
+                    str(FIXTURES / "mixed_quadrant_counts.exp"),
+                    "-s",
+                    str(FIXTURES / "mixed_quadrant_hub.txt"),
+                    "-S",
+                    "1",
+                    "-t",
+                    "0",
+                    "-e",
+                    "1",
+                    "-N",
+                    "20",
+                    "-o",
+                    str(output),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+            body = [
+                line
+                for line in output.read_text(encoding="utf-8").splitlines()
+                if line and not line.startswith(">")
+            ]
+            self.assertEqual(body, ["H\tMIXED_Q\t0.056633"])
+
 
 if __name__ == "__main__":
     unittest.main()

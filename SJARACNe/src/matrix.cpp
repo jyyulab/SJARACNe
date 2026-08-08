@@ -91,7 +91,7 @@ class AdaptivePartitionWorkspace
 public:
    AdaptivePartitionWorkspace()
       : observationCount(0), partitionLimit(0), poc(), kon(), poradi(), marg(),
-        apor(), I(), NN(), amarg(), child() { }
+        apor(), quadrant(), NN(), amarg() { }
 
    void initialize(int N, int M)
    {
@@ -103,10 +103,9 @@ public:
       poradi.resize(N);
       marg.resize(4 * static_cast<std::size_t>(M));
       apor.resize(N);
-      I.resize(4 * static_cast<std::size_t>(N));
+      quadrant.resize(N);
       NN.resize(4);
       amarg.resize(16);
-      child.reserve(N);
    }
 
    bool matches(int N, int M) const
@@ -134,10 +133,9 @@ public:
    std::vector<int> poradi;
    std::vector<int> marg;
    std::vector<int> apor;
-   std::vector<bool> I;
+   std::vector<unsigned char> quadrant;
    std::vector<int> NN;
    std::vector<int> amarg;
-   std::vector<int> child;
 };
 
 //------------------------------------------------------------------------------------
@@ -1264,10 +1262,9 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
    std::vector<int>& poradi = workspace.poradi;
    std::vector<int>& marg   = workspace.marg;
    std::vector<int>& apor   = workspace.apor;
-   std::vector<bool>& I     = workspace.I;
+   std::vector<unsigned char>& quadrant = workspace.quadrant;
    std::vector<int>& NN     = workspace.NN;
    std::vector<int>& amarg  = workspace.amarg;
-   std::vector<int>& child  = workspace.child;
 
    while (npar > 0)
    {
@@ -1284,7 +1281,6 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
       int ave1 = std::floor((marg[np] + marg[np + 2 * M]) / 2);
       int ave2 = std::floor((marg[np + M] + marg[np + 3 * M]) / 2);
 
-      std::fill(I.begin(), I.begin() + 4 * static_cast<std::size_t>(Nex), false);
       std::fill(NN.begin(), NN.end(), 0);
 
       for (int i = 0; i < Nex; i++)
@@ -1293,8 +1289,7 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
 
          int j = (xranks[k] <= ave1 ? 0 : 2) + (yranks[k] <= ave2 ? 0 : 1);
 
-         I[4 * i + j] = true;
-
+         quadrant[i] = static_cast<unsigned char>(j);
          NN[j]++;
       }
 
@@ -1320,6 +1315,27 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
          amarg[12] = amarg[14] = ave2;
          amarg[13] = amarg[15] = marg[np + 3 * M];
 
+         // Pack every non-leaf child in one stable pass.  The old code scanned
+         // the parent once per child quadrant and copied through a temporary
+         // vector; these offsets preserve both quadrant and observation order.
+         int writePosition[4] = { -1, -1, -1, -1 };
+         int nextPosition = apoc - 1;
+
+         for (int i = 0; i < 4; i++)
+            if (NN[i] > 2)
+            {
+               writePosition[i] = nextPosition;
+               nextPosition += NN[i];
+            }
+
+         for (int i = 0; i < Nex; i++)
+         {
+            int childQuadrant = quadrant[i];
+
+            if (writePosition[childQuadrant] >= 0)
+               poradi[writePosition[childQuadrant]++] = apor[i];
+         }
+
          npar--;
 
          for (int i = 0; i < 4; i++)
@@ -1340,15 +1356,6 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
 
                for (int j = 0; j < 4; j++)
                   marg[np + j * M] = amarg[i + 4 * j];
-
-               child.clear();
-
-               for (int j = 0; j < Nex; j++)
-                  if (I[i + 4 * j])
-                     child.push_back(apor[j]);
-
-               for (int j = apoc - 1; j < akon; j++)
-                  poradi[j] = child[j - apoc + 1];
 
                apoc = akon + 1;
             }
