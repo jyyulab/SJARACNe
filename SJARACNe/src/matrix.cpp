@@ -299,7 +299,7 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
          throw "Cannot find marker: " + label + " in the ADJ file!";
 
       data.markerset[geneId1].isActive = true;
-      adjacencyRowsPresent[geneId1] = true;
+      markAdjacencyRow(geneId1);
 
       std::getline(sin, label, '\t');
       label = "_" + label;
@@ -333,11 +333,38 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
 
 //------------------------------------------------------------------------------------
 
+void Matrix::markAdjacencyRow(int geneId)
+{
+   if (geneId < 0)
+      throw std::string("Internal error: cannot mark a negative adjacency row.");
+
+   if (static_cast<std::size_t>(geneId) >= adjacencyRowsPresent.size())
+      adjacencyRowsPresent.resize(geneId + 1, false);
+
+   adjacencyRowsPresent[geneId] = true;
+}
+
+//------------------------------------------------------------------------------------
+
 bool Matrix::hasAdjacencyRow(int geneId) const
 {
    return geneId >= 0 &&
           static_cast<std::size_t>(geneId) < adjacencyRowsPresent.size() &&
           adjacencyRowsPresent[geneId];
+}
+
+//------------------------------------------------------------------------------------
+
+bool Matrix::hasEnoughSourceRowsForDpi() const
+{
+   int sourceRows = 0;
+
+   for (std::vector<bool>::const_iterator row = adjacencyRowsPresent.begin();
+        row != adjacencyRowsPresent.end(); ++row)
+      if (*row && ++sourceRows == 2)
+         return true;
+
+   return false;
 }
 
 //------------------------------------------------------------------------------------
@@ -1508,6 +1535,8 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
    int count      = (ids.size() == 0 ? numMarkers : ids.size());
    int step       = std::ceil(0.1 * count);
 
+   matrix.adjacencyRowsPresent.assign(numMarkers, false);
+
    std::vector<bool> markersNeeded(numMarkers, false);
    bool hasSource = false;
 
@@ -1590,9 +1619,12 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
       for (int i = 0; i < count; i++)
       {
          if (i != controlId && markerset[i].isActive)
-            computeOneRow(maNum, matrix, threshold, i, numMarkers, controlId,
-                          true, true, noise2, nparLimit, rankCache, rankRows,
-                          workspace);
+          {
+             matrix.markAdjacencyRow(i);
+             computeOneRow(maNum, matrix, threshold, i, numMarkers, controlId,
+                           true, true, noise2, nparLimit, rankCache, rankRows,
+                           workspace);
+          }
 
          if ((i + 1) % step == 0)
          {
@@ -1609,6 +1641,7 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
             while (matrix.nmv.size() <= ids[i])
                matrix.nmv.push_back(NodeMap());
 
+            matrix.markAdjacencyRow(ids[i]);
             computeOneRow(maNum, matrix, threshold, ids[i], numMarkers, controlId,
                           false, false, noise2, nparLimit, rankCache, rankRows,
                           workspace);
