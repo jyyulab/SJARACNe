@@ -80,6 +80,31 @@ class TestSubnetworkResolution(unittest.TestCase):
         self.assertIn("Gene: 1", result.stdout)
         self.assertTrue(output.is_file())
 
+    def test_single_computed_hub_skips_impossible_dpi(self):
+        hubs = self.workdir / "single_hub.txt"
+        hubs.write_text("A\n", encoding="utf-8")
+
+        result, output = self.run_sjaracne("-s", str(hubs), "-e", "0")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "[NETWORK] Skipping DPI: fewer than two source rows are available",
+            result.stdout,
+        )
+        self.assertNotIn("[NETWORK] Applying DPI", result.stdout)
+        self.assertTrue(output.is_file())
+
+    def test_two_computed_hubs_still_apply_dpi(self):
+        hubs = self.workdir / "two_hubs.txt"
+        hubs.write_text("A\nB\n", encoding="utf-8")
+
+        result, output = self.run_sjaracne("-s", str(hubs), "-e", "0")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("[NETWORK] Applying DPI", result.stdout)
+        self.assertNotIn("[NETWORK] Skipping DPI", result.stdout)
+        self.assertTrue(output.is_file())
+
     def test_subnetwork_list_normalizes_bom_whitespace_blank_lines_and_endings(self):
         hubs = self.workdir / "normalized_hubs.txt"
         hubs.write_bytes(b"\xef\xbb\xbf  A  \r\n\r\n\tB\t\r C \n")

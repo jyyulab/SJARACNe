@@ -59,7 +59,9 @@ public:
 
    void read(Microarray_Set& data, const Parameter& p);
    void read(std::istream& in, Microarray_Set& data, const Parameter& p);
+   void markAdjacencyRow(int geneId);
    bool hasAdjacencyRow(int geneId) const;
+   bool hasEnoughSourceRowsForDpi() const;
 
    void writeGeneLine(std::ostream& out, const Microarray_Set& data, int geneId);
    void writeGeneList(const Microarray_Set& data, const std::string& name,

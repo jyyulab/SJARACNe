@@ -126,6 +126,29 @@ class TestAdjacencyInput(unittest.TestCase):
             ["A\tC\t0.8", "B\tC\t0.7"],
         )
 
+    def test_single_imported_source_row_skips_impossible_dpi(self):
+        result, output = self.run_sjaracne(
+            "A\tB\t0.2\tC\t0.8\n",
+            hubs="A\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("[NETWORK] Skipping DPI", result.stdout)
+        self.assertNotIn("[NETWORK] Applying DPI", result.stdout)
+        self.assertEqual(self.data_rows(output), ["A\tB\t0.2\tC\t0.8"])
+
+    def test_imported_extra_source_row_keeps_dpi_available(self):
+        result, output = self.run_sjaracne(
+            "A\tB\t0.2\tC\t0.8\n"
+            "B\tC\t0.7\n",
+            hubs="A\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("[NETWORK] Applying DPI", result.stdout)
+        self.assertNotIn("[NETWORK] Skipping DPI", result.stdout)
+        self.assertEqual(self.data_rows(output), ["A\tC\t0.8"])
+
     def test_duplicate_accession_resolves_to_first_expression_row(self):
         self.expression.write_text(
             "isoformId\tgeneSymbol\ts1\ts2\ts3\ts4\ts5\ts6\n"
