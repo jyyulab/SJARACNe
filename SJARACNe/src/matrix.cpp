@@ -626,13 +626,34 @@ bool Microarray_Set::isSameGene(int i, int j) const
 
 int Microarray_Set::getAccessionId(const std::string& accnum) const
 {
+   if (!accessionIdsCurrent)
+      rebuildAccessionIndex();
+
+   std::unordered_map<std::string, int>::const_iterator found =
+      accessionIds.find(accnum);
+
+   if (found != accessionIds.end())
+      return found->second;
+
+   return -1; // did not find it
+}
+
+//------------------------------------------------------------------------------------
+
+void Microarray_Set::rebuildAccessionIndex() const
+{
+   accessionIds.clear();
+   accessionIds.reserve(markerset.size());
+
    int numMarkers = markerset.size();
 
    for (int i = 0; i < numMarkers; i++)
-      if (markerset[i].accnum == accnum)
-         return i;
+      // emplace() does not replace an existing entry. This preserves the legacy
+      // linear lookup behavior when an expression matrix contains duplicate
+      // accession IDs: the first expression row remains authoritative.
+      accessionIds.emplace(markerset[i].accnum, i);
 
-   return -1; // did not find it
+   accessionIdsCurrent = true;
 }
 
 //------------------------------------------------------------------------------------
@@ -666,6 +687,7 @@ void Microarray_Set::Set_Marker(int i, const Marker& m)
       markerset.push_back(Marker());
 
    markerset[i] = m;
+   accessionIdsCurrent = false;
 }
 
 //------------------------------------------------------------------------------------

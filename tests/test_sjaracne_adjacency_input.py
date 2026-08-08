@@ -126,6 +126,21 @@ class TestAdjacencyInput(unittest.TestCase):
             ["A\tC\t0.8", "B\tC\t0.7"],
         )
 
+    def test_duplicate_accession_resolves_to_first_expression_row(self):
+        self.expression.write_text(
+            "isoformId\tgeneSymbol\ts1\ts2\ts3\ts4\ts5\ts6\n"
+            "DUP\tDUP_FIRST\t1\t2\t3\t4\t5\t6\n"
+            "Y\tY\t6\t5\t4\t3\t2\t1\n"
+            "DUP\tDUP_SECOND\t1\t3\t2\t6\t4\t5\n"
+            "X\tX\t2\t1\t4\t3\t6\t5\n",
+            encoding="utf-8",
+        )
+
+        result, output = self.run_sjaracne("X\tDUP\t0.5\tY\t0.6\n")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.data_rows(output), ["X\tDUP\t0.5\tY\t0.6"])
+
 
 if __name__ == "__main__":
     unittest.main()
