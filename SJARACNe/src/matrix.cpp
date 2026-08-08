@@ -84,6 +84,64 @@ public:
 
 //------------------------------------------------------------------------------------
 
+// One workspace belongs to one createEdgeMatrix() invocation.  Every buffer range
+// that can be read must be reset or overwritten before each MI pair or partition.
+class AdaptivePartitionWorkspace
+{
+public:
+   AdaptivePartitionWorkspace()
+      : observationCount(0), partitionLimit(0), poc(), kon(), poradi(), marg(),
+        apor(), I(), NN(), amarg(), child() { }
+
+   void initialize(int N, int M)
+   {
+      observationCount = N;
+      partitionLimit   = M;
+
+      poc.resize(M);
+      kon.resize(M);
+      poradi.resize(N);
+      marg.resize(4 * static_cast<std::size_t>(M));
+      apor.resize(N);
+      I.resize(4 * static_cast<std::size_t>(N));
+      NN.resize(4);
+      amarg.resize(16);
+      child.reserve(N);
+   }
+
+   bool matches(int N, int M) const
+   {
+      return observationCount == N && partitionLimit == M;
+   }
+
+   void resetEdge()
+   {
+      std::fill(poc.begin(), poc.end(), 1);
+      std::fill(kon.begin(), kon.end(), observationCount);
+      std::fill(marg.begin(), marg.end(), 0);
+
+      for (int i = 0; i < observationCount; i++)
+         poradi[i] = i + 1;
+
+      marg[0] = marg[partitionLimit] = 1;
+      marg[2 * partitionLimit] = marg[3 * partitionLimit] = observationCount;
+   }
+
+   int observationCount;
+   int partitionLimit;
+   std::vector<int> poc;
+   std::vector<int> kon;
+   std::vector<int> poradi;
+   std::vector<int> marg;
+   std::vector<int> apor;
+   std::vector<bool> I;
+   std::vector<int> NN;
+   std::vector<int> amarg;
+   std::vector<int> child;
+};
+
+//------------------------------------------------------------------------------------
+
 std::ostream& operator<<(std::ostream& out, const Node& n)
 {
    out << "(" << n.mutinfo << ", " << n.intermediate << ")";
@@ -1186,7 +1244,8 @@ static void BuildRankCache(const Microarray_Set& data, int maNum,
 //------------------------------------------------------------------------------------
 
 static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
-                                  int nparLimit)
+                                  int nparLimit,
+                                  AdaptivePartitionWorkspace& workspace)
 {
    const int M = nparLimit;
 
@@ -1195,13 +1254,20 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
 
    double xcor = 0.0;
 
-   std::vector<int> poc(M, 1), kon(M, N), poradi(N), marg(4 * M, 0);
+   if (!workspace.matches(N, M))
+      throw std::string("Adaptive-partitioning workspace dimensions do not match MI input.");
 
-   for (int i = 0; i < N; i++)
-      poradi[i] = i + 1;
+   workspace.resetEdge();
 
-   marg[0] = marg[M] = 1;
-   marg[2 * M] = marg[3 * M] = N;
+   std::vector<int>& poc    = workspace.poc;
+   std::vector<int>& kon    = workspace.kon;
+   std::vector<int>& poradi = workspace.poradi;
+   std::vector<int>& marg   = workspace.marg;
+   std::vector<int>& apor   = workspace.apor;
+   std::vector<bool>& I     = workspace.I;
+   std::vector<int>& NN     = workspace.NN;
+   std::vector<int>& amarg  = workspace.amarg;
+   std::vector<int>& child  = workspace.child;
 
    while (npar > 0)
    {
@@ -1212,16 +1278,14 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
       int akon = kon[np];
       int Nex  = akon - apoc + 1;
 
-      std::vector<int> apor(Nex);
-
       for (int i = 0; i < Nex; i++)
          apor[i] = poradi[apoc + i - 1];
 
       int ave1 = std::floor((marg[np] + marg[np + 2 * M]) / 2);
       int ave2 = std::floor((marg[np + M] + marg[np + 3 * M]) / 2);
 
-      std::vector<bool> I(4 * Nex, false);
-      std::vector<int>  NN(4, 0);
+      std::fill(I.begin(), I.begin() + 4 * static_cast<std::size_t>(Nex), false);
+      std::fill(NN.begin(), NN.end(), 0);
 
       for (int i = 0; i < Nex; i++)
       {
@@ -1247,8 +1311,6 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
 
       if (tst > 7.8 || run == 1)
       {
-         std::vector<int> amarg(16);
-
          amarg[ 0] = amarg[ 1] = marg[np];
          amarg[ 2] = amarg[ 3] = ave1 + 1;
          amarg[ 4] = amarg[ 6] = marg[np + M];
@@ -1279,14 +1341,14 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
                for (int j = 0; j < 4; j++)
                   marg[np + j * M] = amarg[i + 4 * j];
 
-               std::vector<int> t;
+               child.clear();
 
                for (int j = 0; j < Nex; j++)
                   if (I[i + 4 * j])
-                     t.push_back(apor[j]);
+                     child.push_back(apor[j]);
 
                for (int j = apoc - 1; j < akon; j++)
-                  poradi[j] = t[j - apoc + 1];
+                  poradi[j] = child[j - apoc + 1];
 
                apoc = akon + 1;
             }
@@ -1317,7 +1379,8 @@ static double Compute_Pairwise_MI(const int *xranks, const int *yranks, int N,
 double Microarray_Set::calculateMI(int maNum, int probeId1, int probeId2,
                                    double threshold, double noise2, int nparLimit,
                                    const std::vector<int>& rankCache,
-                                   const std::vector<int>& rankRows) const
+                                   const std::vector<int>& rankRows,
+                                   AdaptivePartitionWorkspace& workspace) const
 {
    // compute mutual information between two gene expression vectors;
    // zero is returned if there is no connection
@@ -1332,7 +1395,7 @@ double Microarray_Set::calculateMI(int maNum, int probeId1, int probeId2,
    std::size_t offset2 = static_cast<std::size_t>(rankRows[probeId2]) * maNum;
 
    double mi = Compute_Pairwise_MI(&rankCache[offset1], &rankCache[offset2],
-                                   maNum, nparLimit);
+                                   maNum, nparLimit, workspace);
 
    if (!std::isfinite(mi))
    {
@@ -1379,7 +1442,8 @@ void Microarray_Set::computeOneRow(int maNum, Matrix& matrix, double threshold,
                                    bool half_matrix, bool symmetric, double noise2,
                                    int nparLimit,
                                    const std::vector<int>& rankCache,
-                                   const std::vector<int>& rankRows) const
+                                   const std::vector<int>& rankRows,
+                                   AdaptivePartitionWorkspace& workspace) const
 {
    // this function computes one row of the adjacency matrix; it is called by
    // createEdgeMatrix(); note that since the adjacency matrix is symmetric,
@@ -1390,7 +1454,7 @@ void Microarray_Set::computeOneRow(int maNum, Matrix& matrix, double threshold,
       if (j != controlId && markerset[j].isActive)
       {
          double edge = calculateMI(maNum, row_idx, j, threshold, noise2, nparLimit,
-                                   rankCache, rankRows);
+                                   rankCache, rankRows, workspace);
          if (edge != 0.0)
             matrix.addNode(row_idx, j, edge, symmetric);
       }
@@ -1444,6 +1508,7 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
 
    std::vector<int> rankRows;
    std::vector<int> rankCache;
+   AdaptivePartitionWorkspace workspace;
 
    try
    {
@@ -1469,6 +1534,26 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
              << " observations in " << std::difftime(t2, t1) << " seconds ("
              << rankCacheMiB << " MiB)." << std::endl;
 
+   if (hasSource)
+      try
+      {
+         workspace.initialize(maNum, nparLimit);
+      }
+      catch (const std::bad_alloc&)
+      {
+         std::ostringstream s;
+         s << "Unable to allocate adaptive-partitioning workspace for " << maNum
+           << " observations and partition limit " << nparLimit << ".";
+         throw s.str();
+      }
+      catch (const std::length_error&)
+      {
+         std::ostringstream s;
+         s << "Adaptive-partitioning workspace is too large for " << maNum
+           << " observations and partition limit " << nparLimit << ".";
+         throw s.str();
+      }
+
    if (ids.size() == 0) // all genes will be computed
    {
       matrix.createEntries(count);
@@ -1477,7 +1562,8 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
       {
          if (i != controlId && markerset[i].isActive)
             computeOneRow(maNum, matrix, threshold, i, numMarkers, controlId,
-                          true, true, noise2, nparLimit, rankCache, rankRows);
+                          true, true, noise2, nparLimit, rankCache, rankRows,
+                          workspace);
 
          if ((i + 1) % step == 0)
          {
@@ -1495,7 +1581,8 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
                matrix.nmv.push_back(NodeMap());
 
             computeOneRow(maNum, matrix, threshold, ids[i], numMarkers, controlId,
-                          false, false, noise2, nparLimit, rankCache, rankRows);
+                          false, false, noise2, nparLimit, rankCache, rankRows,
+                          workspace);
 
             if ((i + 1) % step == 0)
             {

@@ -14,6 +14,7 @@
 typedef std::map<int, int> Transfac;
 
 class Microarray_Set;
+class AdaptivePartitionWorkspace;
 
 //------------------------------------------------------------------------------------
 // The Matrix class represents the adjacency matrix data structure that consists a
@@ -182,12 +183,14 @@ private:
    double calculateMI(int maNum, int probeId1, int probeId2, double threshold,
                       double noise2, int nparLimit,
                       const std::vector<int>& rankCache,
-                      const std::vector<int>& rankRows) const;
+                      const std::vector<int>& rankRows,
+                      AdaptivePartitionWorkspace& workspace) const;
    void computeOneRow(int maNum, Matrix& matrix, double threshold, int row_idx,
                       int numMarkers, int controlId, bool half_matrix,
                       bool symmetric, double noise2, int nparLimit,
                       const std::vector<int>& rankCache,
-                      const std::vector<int>& rankRows) const;
+                      const std::vector<int>& rankRows,
+                      AdaptivePartitionWorkspace& workspace) const;
 
 public:
    void createEdgeMatrix(int maNum, Matrix& matrix, double threshold, int controlId,
