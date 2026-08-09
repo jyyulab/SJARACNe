@@ -44,7 +44,14 @@ class TestAdjacencyInput(unittest.TestCase):
     def tearDown(self):
         self.folder.cleanup()
 
-    def run_sjaracne(self, adjacency_body, hubs=None, epsilon="0", tf_genes=None):
+    def run_sjaracne(
+        self,
+        adjacency_body,
+        hubs=None,
+        epsilon="0",
+        tf_genes=None,
+        threshold=None,
+    ):
         adjacency = self.workdir / "input.adj"
         adjacency.write_text(adjacency_body, encoding="utf-8")
         output = self.workdir / "output.adj"
@@ -71,6 +78,9 @@ class TestAdjacencyInput(unittest.TestCase):
             tf_file = self.workdir / "tf_genes.txt"
             tf_file.write_text(tf_genes, encoding="utf-8")
             command.extend(["-l", str(tf_file)])
+
+        if threshold is not None:
+            command.extend(["-t", str(threshold)])
 
         result = subprocess.run(command, capture_output=True, text=True, check=False)
         return result, output
@@ -118,6 +128,34 @@ class TestAdjacencyInput(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue(output.is_file())
         self.assertEqual(self.data_rows(output), ["A\tB\t0.5"])
+
+    def test_shuffled_repeated_rows_are_merged_and_target_sorted(self):
+        result, output = self.run_sjaracne(
+            "C\tE\t0.4\tB\t0.3\n"
+            "A\tD\t0.8\tB\t0.2\n"
+            "C\tD\t0.6\tE\t0.9\n"
+            "A\tC\t0.7\tD\t0.95\n",
+            epsilon="1",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            self.data_rows(output),
+            [
+                "A\tB\t0.2\tC\t0.7\tD\t0.95",
+                "C\tB\t0.3\tD\t0.6\tE\t0.9",
+            ],
+        )
+
+    def test_thresholded_duplicates_preserve_last_retained_value(self):
+        result, output = self.run_sjaracne(
+            "A\tD\t0.8\tD\t0.4\tC\t0.6\tB\t0.59\tE\t0.9\tE\t0.7\n",
+            epsilon="1",
+            threshold="0.6",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.data_rows(output), ["A\tC\t0.6\tD\t0.8\tE\t0.7"])
 
     def test_three_gene_dpi_triangle_prunes_the_weakest_edge(self):
         result, output = self.run_sjaracne(
