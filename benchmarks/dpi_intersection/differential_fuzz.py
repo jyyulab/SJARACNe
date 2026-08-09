@@ -53,12 +53,37 @@ def write_adjacency(path, genes, sources, rng, symmetric):
 
     lines = []
     for source in sources:
-        fields = [genes[source]]
-        for target in range(len(genes)):
-            mi = edges.get((source, target))
-            if mi is not None:
+        pairs = [
+            (target, edges[source, target])
+            for target in range(len(genes))
+            if (source, target) in edges
+        ]
+
+        # Exercise the adjacency representation rather than feeding it only
+        # canonical rows: targets can be unordered, a target can occur twice,
+        # and one source can be split across repeated lines. The final retained
+        # occurrence remains the defined value for both implementations.
+        if pairs and rng.random() < 0.4:
+            duplicate_target, _ = rng.choice(pairs)
+            pairs.append((duplicate_target, rng.choice(mi_values)))
+        rng.shuffle(pairs)
+
+        if not pairs:
+            lines.append(genes[source])
+            continue
+
+        record_count = rng.randint(1, min(3, len(pairs)))
+        records = [[] for _ in range(record_count)]
+        for index, pair in enumerate(pairs):
+            records[index % record_count].append(pair)
+
+        for record in records:
+            fields = [genes[source]]
+            for target, mi in record:
                 fields.extend((genes[target], mi))
-        lines.append("\t".join(fields))
+            lines.append("\t".join(fields))
+
+    rng.shuffle(lines)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
