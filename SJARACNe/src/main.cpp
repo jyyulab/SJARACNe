@@ -278,7 +278,8 @@ void runStandard(int argc, char *argv[])
    if (p.correction != 0.0)
       data.computeMarkerVariance(arrays);
 
-   data.computeMarkerBandwidth(arrays);
+   // Adaptive-partitioning MI does not consume Marker::bandwidth.  Avoid the
+   // unnecessary variance pass and per-marker sort performed by that calculation.
 
    Transfac transfac;
 
