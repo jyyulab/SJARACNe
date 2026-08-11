@@ -278,7 +278,8 @@ void runStandard(int argc, char *argv[])
    if (p.correction != 0.0)
       data.computeMarkerVariance(arrays);
 
-   data.computeMarkerBandwidth(arrays);
+   // Adaptive-partitioning MI does not consume Marker::bandwidth.  Avoid the
+   // unnecessary variance pass and per-marker sort performed by that calculation.
 
    Transfac transfac;
 
@@ -348,8 +349,15 @@ void runStandard(int argc, char *argv[])
 
    if (p.eps != 1.0)
    {
-      std::cout << "[NETWORK] Applying DPI ..." << std::endl;
-      matrix.reduce(p.eps, ids, transfac);
+      if (matrix.hasEnoughSourceRowsForDpi())
+      {
+         std::cout << "[NETWORK] Applying DPI ..." << std::endl;
+         matrix.reduce(p.eps, ids, transfac);
+      }
+      else
+         std::cout << "[NETWORK] Skipping DPI: fewer than two source rows are "
+                      "available; no eligible triangle can be formed."
+                   << std::endl;
    }
 
    if (p.outfile == "")

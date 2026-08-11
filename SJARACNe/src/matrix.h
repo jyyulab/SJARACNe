@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include "param.h"
 
 typedef std::map<int, int> Transfac;
@@ -24,20 +25,19 @@ class AdaptivePartitionWorkspace;
 // otherwise. The matrix is symmetric.
 //------------------------------------------------------------------------------------
 
-class Node // represents an edge between two genes
+class AdjacencyEdge // represents an edge between two genes
 {
 public:
-   Node(double mi=0.0)
-      : mutinfo(mi), intermediate(-1) { }
+   AdjacencyEdge(int inTarget=-1, double mi=0.0)
+      : mutinfo(mi), target(inTarget), intermediate(-1) { }
 
    double mutinfo;   // Get_MutualInfo(), Set_MutualInfo()
+   int target;        // target gene ID
    int intermediate; // Get_Intermediate(), Set_Intermediate()
-
-   friend std::ostream& operator<<(std::ostream& out, const Node& n);
 };
 
-typedef std::map<int, Node> NodeMap;
-typedef std::vector<NodeMap> NodeMapVector;
+typedef std::vector<AdjacencyEdge> AdjacencyRow;
+typedef std::vector<AdjacencyRow> AdjacencyRows;
 
 //------------------------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ public:
       : nmv(), adjacencyRowsPresent(), writeTriangular(false),
         writeReduced(false), writeEmptyGenes(false) { }
 
-   NodeMapVector nmv;
+   AdjacencyRows nmv;
    std::vector<bool> adjacencyRowsPresent;
 
    bool writeTriangular; // if true, only triangular half of matrix will be written
@@ -59,7 +59,9 @@ public:
 
    void read(Microarray_Set& data, const Parameter& p);
    void read(std::istream& in, Microarray_Set& data, const Parameter& p);
+   void markAdjacencyRow(int geneId);
    bool hasAdjacencyRow(int geneId) const;
+   bool hasEnoughSourceRowsForDpi() const;
 
    void writeGeneLine(std::ostream& out, const Microarray_Set& data, int geneId);
    void writeGeneList(const Microarray_Set& data, const std::string& name,
@@ -72,6 +74,7 @@ public:
 
    void createEntries(int numEntries);
    void addNode(int i, int j, double edgeValue, bool symmetric);
+   void compactRows();
 
    double getNodeMI(int geneId1, int geneId2);
    void reduceOneNode(int row_idx, double epsilon, Transfac& transfac);
@@ -136,7 +139,8 @@ class Microarray_Set
 {
 public:
    Microarray_Set()
-      : markerset(), uarrays(), header() { }
+      : markerset(), uarrays(), header(), accessionIds(),
+        accessionIdsCurrent(false) { }
 
    Marker_Set markerset;                 // Get_Num_Markers(), Get_Marker(),
                                          // Get_Marker_AffyId() gets marker's accnum,
@@ -180,6 +184,11 @@ public:
    void addNoise();
 
 private:
+   void rebuildAccessionIndex() const;
+
+   mutable std::unordered_map<std::string, int> accessionIds;
+   mutable bool accessionIdsCurrent;
+
    double calculateMI(int maNum, int probeId1, int probeId2, double threshold,
                       double noise2, int nparLimit,
                       const std::vector<int>& rankCache,

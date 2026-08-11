@@ -15,6 +15,7 @@
 #include <functional>
 #include <ios>
 #include <iterator>
+#include <limits>
 #include <new>
 #include <sstream>
 #include <stdexcept>
@@ -55,6 +56,144 @@ public:
    {
       return (a.value > b.value);
    }
+};
+
+//------------------------------------------------------------------------------------
+
+class AdjacencyTargetLess
+{
+public:
+   bool operator()(const AdjacencyEdge& left,
+                   const AdjacencyEdge& right) const
+   {
+      return left.target < right.target;
+   }
+
+   bool operator()(const AdjacencyEdge& edge, int target) const
+   {
+      return edge.target < target;
+   }
+};
+
+static void normalizeImportedRow(AdjacencyRow& row)
+{
+   if (row.size() < 2)
+      return;
+
+   bool targetSorted = true;
+   for (std::size_t i = 1; i < row.size(); ++i)
+      if (row[i - 1].target > row[i].target)
+      {
+         targetSorted = false;
+         break;
+      }
+
+   // Stable ordering is required so the last retained occurrence of a
+   // duplicate edge remains authoritative, matching the legacy map update.
+   if (!targetSorted)
+      std::stable_sort(row.begin(), row.end(), AdjacencyTargetLess());
+
+   std::size_t write = 0;
+   for (std::size_t first = 0; first < row.size();)
+   {
+      std::size_t last = first + 1;
+      while (last < row.size() && row[last].target == row[first].target)
+         ++last;
+
+      row[write++] = row[last - 1];
+      first = last;
+   }
+
+   row.resize(write);
+}
+
+static AdjacencyRow::iterator findAdjacencyEdge(AdjacencyRow& row, int target)
+{
+   AdjacencyRow::iterator edge =
+      std::lower_bound(row.begin(), row.end(), target, AdjacencyTargetLess());
+
+   return edge != row.end() && edge->target == target ? edge : row.end();
+}
+
+class DpiNeighborIndex
+{
+public:
+   explicit DpiNeighborIndex(const Matrix& matrix)
+      : rows(matrix.nmv), incomingForEmptyRows()
+   {
+      std::size_t nodeCount = std::max(matrix.nmv.size(),
+                                      matrix.adjacencyRowsPresent.size());
+
+      for (AdjacencyRows::const_iterator row = rows.begin(); row != rows.end(); ++row)
+         if (!row->empty())
+         {
+            if (row->front().target < 0)
+               throw std::string(
+                  "Internal error: negative gene ID in adjacency matrix.");
+
+            int largestTarget = row->back().target;
+            nodeCount = std::max(nodeCount,
+                                 static_cast<std::size_t>(largestTarget) + 1);
+         }
+
+      if (rows.size() >
+          static_cast<std::size_t>(std::numeric_limits<int>::max()))
+         throw std::string(
+            "Internal error: adjacency matrix exceeds the supported gene-ID range.");
+
+      incomingForEmptyRows.resize(nodeCount);
+
+      for (std::size_t source = 0; source < rows.size(); ++source)
+         for (AdjacencyRow::const_iterator edge = rows[source].begin();
+              edge != rows[source].end(); ++edge)
+         {
+            int target = edge->target;
+            bool targetHasRow = static_cast<std::size_t>(target) < rows.size() &&
+                                !rows[target].empty();
+
+            if (!targetHasRow)
+               incomingForEmptyRows[target].push_back(
+                  ArrayValuePair(static_cast<int>(source),
+                                 edge->mutinfo));
+         }
+   }
+
+   std::size_t nodeCount() const
+   {
+      return incomingForEmptyRows.size();
+   }
+
+   bool hasDirectRow(int geneId) const
+   {
+      return geneId >= 0 && static_cast<std::size_t>(geneId) < rows.size() &&
+             !rows[geneId].empty();
+   }
+
+   const AdjacencyRow& directRow(int geneId) const
+   {
+      return rows[geneId];
+   }
+
+   const std::vector<ArrayValuePair>& incomingRow(int geneId) const
+   {
+      return incomingForEmptyRows[geneId];
+   }
+
+   std::size_t effectiveDegree(int geneId) const
+   {
+      if (hasDirectRow(geneId))
+         return directRow(geneId).size();
+
+      if (geneId >= 0 &&
+          static_cast<std::size_t>(geneId) < incomingForEmptyRows.size())
+         return incomingRow(geneId).size();
+
+      return 0;
+   }
+
+private:
+   const AdjacencyRows& rows;
+   std::vector<std::vector<ArrayValuePair> > incomingForEmptyRows;
 };
 
 //------------------------------------------------------------------------------------
@@ -139,15 +278,6 @@ public:
 };
 
 //------------------------------------------------------------------------------------
-
-std::ostream& operator<<(std::ostream& out, const Node& n)
-{
-   out << "(" << n.mutinfo << ", " << n.intermediate << ")";
-   return out;
-}
-
-//------------------------------------------------------------------------------------
-
 std::ostream& operator<<(std::ostream& out, const Marker& m)
 {
    out << "(" << m.label << "; " << m.accnum << "; " << m.idnum << "; "
@@ -211,14 +341,27 @@ void Matrix::saveNode(int i, int j, double mi)
    if (!std::isfinite(mi))
       throw std::string("Refusing to store a non-finite MI value.");
 
-   NodeMap& nmap = nmv[i];
+   AdjacencyRow& row = nmv[i];
 
-   NodeMap::iterator npos = nmap.find(j);
+   if (row.empty() || row.back().target < j)
+   {
+      row.push_back(AdjacencyEdge(j, mi));
+      return;
+   }
 
-   if (npos == nmap.end())
-      nmap.insert(std::make_pair(j, Node(mi)));
+   if (row.back().target == j)
+   {
+      row.back().mutinfo = mi;
+      return;
+   }
+
+   AdjacencyRow::iterator edge =
+      std::lower_bound(row.begin(), row.end(), j, AdjacencyTargetLess());
+
+   if (edge == row.end() || edge->target != j)
+      row.insert(edge, AdjacencyEdge(j, mi));
    else
-      npos->second.mutinfo = mi;
+      edge->mutinfo = mi;
 }
 
 //------------------------------------------------------------------------------------
@@ -277,7 +420,7 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
 {
    // The expression matrix defines the complete gene-ID space.  Pre-sizing
    // prevents sparse -j inputs from leaving requested rows out of bounds.
-   nmv.assign(data.markerset.size(), NodeMap());
+   nmv.assign(data.markerset.size(), AdjacencyRow());
    adjacencyRowsPresent.assign(data.markerset.size(), false);
 
    std::string line;
@@ -299,7 +442,7 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
          throw "Cannot find marker: " + label + " in the ADJ file!";
 
       data.markerset[geneId1].isActive = true;
-      adjacencyRowsPresent[geneId1] = true;
+      markAdjacencyRow(geneId1);
 
       std::getline(sin, label, '\t');
       label = "_" + label;
@@ -320,7 +463,10 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
             if (geneId2 == -1)
                throw "Cannot find marker: " + label + " in the ADJ file!";
 
-            saveNode(geneId1, geneId2, mi);
+            // Imported adjacency rows can be unordered or repeated. Append in
+            // file order, then stable-sort and deduplicate each row once after
+            // parsing instead of shifting a vector on every unordered edge.
+            nmv[geneId1].push_back(AdjacencyEdge(geneId2, mi));
          }
 
          std::getline(sin, label, '\t');
@@ -329,6 +475,24 @@ void Matrix::read(std::istream& in, Microarray_Set& data, const Parameter& p)
 
       std::getline(in, line);
    }
+
+   for (AdjacencyRows::iterator row = nmv.begin(); row != nmv.end(); ++row)
+      normalizeImportedRow(*row);
+
+   compactRows();
+}
+
+//------------------------------------------------------------------------------------
+
+void Matrix::markAdjacencyRow(int geneId)
+{
+   if (geneId < 0)
+      throw std::string("Internal error: cannot mark a negative adjacency row.");
+
+   if (static_cast<std::size_t>(geneId) >= adjacencyRowsPresent.size())
+      adjacencyRowsPresent.resize(geneId + 1, false);
+
+   adjacencyRowsPresent[geneId] = true;
 }
 
 //------------------------------------------------------------------------------------
@@ -342,34 +506,48 @@ bool Matrix::hasAdjacencyRow(int geneId) const
 
 //------------------------------------------------------------------------------------
 
+bool Matrix::hasEnoughSourceRowsForDpi() const
+{
+   int sourceRows = 0;
+
+   for (std::vector<bool>::const_iterator row = adjacencyRowsPresent.begin();
+        row != adjacencyRowsPresent.end(); ++row)
+      if (*row && ++sourceRows == 2)
+         return true;
+
+   return false;
+}
+
+//------------------------------------------------------------------------------------
+
 void Matrix::writeGeneLine(std::ostream& out, const Microarray_Set& data, int geneId)
 {
-   NodeMap& nmap = nmv[geneId];
+   AdjacencyRow& row = nmv[geneId];
 
    const Marker& marker = data.markerset[geneId];
 
-   if (nmap.size() == 0 &&
+   if (row.size() == 0 &&
        (!writeEmptyGenes || !marker.isActive && !marker.isControl))
       return;
 
    out << marker.accnum.substr(1);
 
-   for (NodeMap::iterator npos = nmap.begin(); npos != nmap.end(); ++npos)
+   for (AdjacencyRow::iterator edge = row.begin(); edge != row.end(); ++edge)
    {
-      int   id   = npos->first;
-      Node& node = npos->second;
+      int id = edge->target;
 
-      if (writeTriangular && id <= geneId || !writeReduced && node.intermediate >= 0)
+      if (writeTriangular && id <= geneId ||
+          !writeReduced && edge->intermediate >= 0)
          continue;
 
       const Marker& marker = data.markerset[id];
 
       out << "\t" << marker.accnum.substr(1);
 
-      if (node.intermediate >= 0)
-         out << "." << node.intermediate;
+      if (edge->intermediate >= 0)
+         out << "." << edge->intermediate;
 
-      out << "\t" << node.mutinfo;
+      out << "\t" << edge->mutinfo;
    }
 
    out << std::endl;
@@ -388,23 +566,22 @@ void Matrix::writeGeneList(const Microarray_Set& data, const std::string& name,
 
    std::cout << "Writing gene list: "<< filename << std::endl;
 
-   NodeMap& nmap = nmv[probeId];
+   AdjacencyRow& row = nmv[probeId];
 
    const Marker& marker = data.markerset[probeId];
 
-   if (nmap.size() == 0 &&
+   if (row.size() == 0 &&
        (!writeEmptyGenes || !marker.isActive && !marker.isControl))
       return;
 
-   for (NodeMap::iterator npos = nmap.begin(); npos != nmap.end(); ++npos)
+   for (AdjacencyRow::iterator edge = row.begin(); edge != row.end(); ++edge)
    {
-      int   id   = npos->first;
-      Node& node = npos->second;
+      int id = edge->target;
 
       const Marker& marker = data.markerset[id];
 
       if (id != probeId)
-         out << id << "\t" << marker.accnum << "t" << node.mutinfo << std::endl;
+         out << id << "\t" << marker.accnum << "t" << edge->mutinfo << std::endl;
    }
 
    out.close();
@@ -474,7 +651,7 @@ void Matrix::createEntries(int numEntries)
    // create entries for all rows in the matrix
 
    for (int i = 0; i < numEntries; i++)
-      nmv.push_back(NodeMap());
+      nmv.push_back(AdjacencyRow());
 }
 
 //------------------------------------------------------------------------------------
@@ -489,6 +666,26 @@ void Matrix::addNode(int i, int j, double edgeValue, bool symmetric)
 
 //------------------------------------------------------------------------------------
 
+void Matrix::compactRows()
+{
+   try
+   {
+      for (AdjacencyRows::iterator row = nmv.begin(); row != nmv.end(); ++row)
+         if (row->capacity() != row->size())
+            AdjacencyRow(*row).swap(*row);
+   }
+   catch (const std::bad_alloc&)
+   {
+      throw std::string("Unable to compact adjacency rows.");
+   }
+   catch (const std::length_error&)
+   {
+      throw std::string("Adjacency row is too large to compact.");
+   }
+}
+
+//------------------------------------------------------------------------------------
+
 double Matrix::getNodeMI(int geneId1, int geneId2)
 {
    // this function returns a positive MI value if the node has been computed and
@@ -497,19 +694,19 @@ double Matrix::getNodeMI(int geneId1, int geneId2)
 
    if (nmv.size() > geneId1 && nmv[geneId1].size() > 0)
    {
-      NodeMap& nmap = nmv[geneId1];
+      AdjacencyRow& row = nmv[geneId1];
 
-      NodeMap::iterator npos = nmap.find(geneId2);
+      AdjacencyRow::iterator edge = findAdjacencyEdge(row, geneId2);
 
-      return (npos == nmap.end() ? 0.0 : npos->second.mutinfo);
+      return (edge == row.end() ? 0.0 : edge->mutinfo);
    }
    else if (nmv.size() > geneId2 && nmv[geneId2].size() > 0)
    {
-      NodeMap& nmap = nmv[geneId2];
+      AdjacencyRow& row = nmv[geneId2];
 
-      NodeMap::iterator npos = nmap.find(geneId1);
+      AdjacencyRow::iterator edge = findAdjacencyEdge(row, geneId1);
 
-      return (npos == nmap.end() ? 0.0 : npos->second.mutinfo);
+      return (edge == row.end() ? 0.0 : edge->mutinfo);
    }
    else
       return -1.0;
@@ -529,49 +726,168 @@ static bool protectedByTFLogic(Transfac &transfac,
 
 //------------------------------------------------------------------------------------
 
-void Matrix::reduceOneNode(int row_idx, double epsilon, Transfac& transfac)
+static int strongerNeighborCount(const std::vector<ArrayValuePair>& miVector,
+                                 int candidatePosition, double minMI)
 {
-   NodeMap& nmap = nmv[row_idx];
+   if (candidatePosition == 0 || miVector[0].value <= minMI)
+      return 0;
+
+   if (miVector[candidatePosition - 1].value > minMI)
+      return candidatePosition;
+
+   int lower = 0;
+   int upper = candidatePosition;
+
+   while (lower < upper)
+   {
+      int middle = lower + (upper - lower) / 2;
+
+      if (miVector[middle].value > minMI)
+         lower = middle + 1;
+      else
+         upper = middle;
+   }
+
+   return lower;
+}
+
+//------------------------------------------------------------------------------------
+
+static void considerDpiIntermediate(int geneId3, double valueBC,
+                                    int strongerCount, double minMI,
+                                    int row_idx, int geneId1,
+                                    const std::vector<int>& neighborPosition,
+                                    Transfac& transfac, int& bestPosition)
+{
+   if (geneId3 < 0 ||
+       static_cast<std::size_t>(geneId3) >= neighborPosition.size())
+      return;
+
+   int position = neighborPosition[geneId3];
+
+   if (position < 0 || position >= strongerCount || position >= bestPosition ||
+       valueBC <= minMI ||
+       (transfac.size() > 0 &&
+        protectedByTFLogic(transfac, row_idx, geneId1, geneId3)))
+      return;
+
+   bestPosition = position;
+}
+
+//------------------------------------------------------------------------------------
+
+static void reduceOneNodeByIntersection(
+   Matrix& matrix, int row_idx, double epsilon, Transfac& transfac,
+   const DpiNeighborIndex& neighborIndex,
+   std::vector<int>& neighborPosition)
+{
+   AdjacencyRow& row = matrix.nmv[row_idx];
 
    std::vector<ArrayValuePair> miVector;
+   miVector.reserve(row.size());
 
-   for (NodeMap::iterator npos = nmap.begin(); npos != nmap.end(); ++npos)
-      miVector.push_back(ArrayValuePair(npos->first, npos->second.mutinfo));
+   for (AdjacencyRow::iterator edge = row.begin(); edge != row.end(); ++edge)
+      miVector.push_back(ArrayValuePair(edge->target, edge->mutinfo));
 
    SortDecreasing_ArrayValuePair sorter;
    std::sort(miVector.begin(), miVector.end(), sorter);
 
    int numPairs = miVector.size();
 
+   for (int position = 0; position < numPairs; ++position)
+      neighborPosition[miVector[position].arrayId] = position;
+
    for (int i = 0; i < numPairs; i++)
    {
       int    geneId1 = miVector[i].arrayId;
       double valueAB = miVector[i].value;
-
       double minMI   = valueAB / (1.0 - epsilon);
 
-      for (int j = 0; j < i; j++)
+      int strongerCount = strongerNeighborCount(miVector, i, minMI);
+      if (strongerCount == 0)
+         continue;
+
+      int bestPosition = strongerCount;
+      std::size_t effectiveDegree = neighborIndex.effectiveDegree(geneId1);
+
+      if (static_cast<std::size_t>(strongerCount) <= effectiveDegree)
       {
-         int    geneId2 = miVector[j].arrayId;
-         double valueAC = miVector[j].value;
-
-         if (valueAC <= minMI)
-            break;
-
-         double valueBC = getNodeMI(geneId1, geneId2);
-
-         if (valueBC > minMI && (transfac.size() == 0 ||
-             !protectedByTFLogic(transfac, row_idx, geneId1, geneId2)))
+         // The stronger A-neighbor prefix is the smaller side of the
+         // intersection. Preserve its MI-descending order and stop at the first
+         // qualifying intermediate, exactly as the legacy loop did.
+         for (int j = 0; j < strongerCount; ++j)
          {
-            NodeMap::iterator npos = nmap.find(geneId1);
+            int geneId2 = miVector[j].arrayId;
+            double valueBC = matrix.getNodeMI(geneId1, geneId2);
 
-            if (npos != nmap.end())
-               npos->second.intermediate = geneId2;
-
-            break;
+            if (valueBC > minMI && (transfac.size() == 0 ||
+                !protectedByTFLogic(transfac, row_idx, geneId1, geneId2)))
+            {
+               bestPosition = j;
+               break;
+            }
          }
       }
+      else if (neighborIndex.hasDirectRow(geneId1))
+      {
+         // geneId1 has a stored source row, so getNodeMI() consults that row
+         // exclusively. Enumerate only its actual edges and intersect them with
+         // the stronger A-neighbor prefix.
+         const AdjacencyRow& directRow = neighborIndex.directRow(geneId1);
+
+         for (AdjacencyRow::const_iterator edge = directRow.begin();
+              edge != directRow.end(); ++edge)
+         {
+            considerDpiIntermediate(edge->target, edge->mutinfo,
+                                    strongerCount, minMI, row_idx, geneId1,
+                                    neighborPosition, transfac, bestPosition);
+
+            if (bestPosition == 0)
+               break;
+         }
+      }
+      else
+      {
+         // A missing/empty geneId1 row makes getNodeMI() fall back to incoming
+         // geneId2 -> geneId1 edges. The reverse index reproduces that behavior
+         // without probing every stronger A-neighbor.
+         const std::vector<ArrayValuePair>& row =
+            neighborIndex.incomingRow(geneId1);
+
+         for (std::vector<ArrayValuePair>::const_iterator edge = row.begin();
+              edge != row.end(); ++edge)
+         {
+            considerDpiIntermediate(edge->arrayId, edge->value,
+                                    strongerCount, minMI, row_idx, geneId1,
+                                    neighborPosition, transfac, bestPosition);
+
+            if (bestPosition == 0)
+               break;
+         }
+      }
+
+      if (bestPosition < strongerCount)
+      {
+         AdjacencyRow::iterator edge = findAdjacencyEdge(row, geneId1);
+
+         if (edge != row.end())
+            edge->intermediate = miVector[bestPosition].arrayId;
+      }
    }
+
+   for (int position = 0; position < numPairs; ++position)
+      neighborPosition[miVector[position].arrayId] = -1;
+}
+
+//------------------------------------------------------------------------------------
+
+void Matrix::reduceOneNode(int row_idx, double epsilon, Transfac& transfac)
+{
+   compactRows();
+   DpiNeighborIndex neighborIndex(*this);
+   std::vector<int> neighborPosition(neighborIndex.nodeCount(), -1);
+   reduceOneNodeByIntersection(*this, row_idx, epsilon, transfac,
+                               neighborIndex, neighborPosition);
 }
 
 //------------------------------------------------------------------------------------
@@ -581,19 +897,25 @@ void Matrix::reduce(double epsilon, const std::vector<int>& ids, Transfac& trans
    std::time_t t1, t2;
    std::time(&t1);
 
+   compactRows();
+   DpiNeighborIndex neighborIndex(*this);
+   std::vector<int> neighborPosition(neighborIndex.nodeCount(), -1);
+
    if (ids.size() == 0)
    {
       int numMarkers = nmv.size();
 
       for (int i = 0; i < numMarkers; i++)
-         reduceOneNode(i, epsilon, transfac);
+         reduceOneNodeByIntersection(*this, i, epsilon, transfac,
+                                     neighborIndex, neighborPosition);
    }
    else
    {
       int numIds = ids.size();
 
       for (int i = 0; i < numIds; i++)
-         reduceOneNode(ids[i], epsilon, transfac);
+         reduceOneNodeByIntersection(*this, ids[i], epsilon, transfac,
+                                     neighborIndex, neighborPosition);
    }
 
    std::time(&t2);
@@ -626,13 +948,34 @@ bool Microarray_Set::isSameGene(int i, int j) const
 
 int Microarray_Set::getAccessionId(const std::string& accnum) const
 {
+   if (!accessionIdsCurrent)
+      rebuildAccessionIndex();
+
+   std::unordered_map<std::string, int>::const_iterator found =
+      accessionIds.find(accnum);
+
+   if (found != accessionIds.end())
+      return found->second;
+
+   return -1; // did not find it
+}
+
+//------------------------------------------------------------------------------------
+
+void Microarray_Set::rebuildAccessionIndex() const
+{
+   accessionIds.clear();
+   accessionIds.reserve(markerset.size());
+
    int numMarkers = markerset.size();
 
    for (int i = 0; i < numMarkers; i++)
-      if (markerset[i].accnum == accnum)
-         return i;
+      // emplace() does not replace an existing entry. This preserves the legacy
+      // linear lookup behavior when an expression matrix contains duplicate
+      // accession IDs: the first expression row remains authoritative.
+      accessionIds.emplace(markerset[i].accnum, i);
 
-   return -1; // did not find it
+   accessionIdsCurrent = true;
 }
 
 //------------------------------------------------------------------------------------
@@ -666,6 +1009,7 @@ void Microarray_Set::Set_Marker(int i, const Marker& m)
       markerset.push_back(Marker());
 
    markerset[i] = m;
+   accessionIdsCurrent = false;
 }
 
 //------------------------------------------------------------------------------------
@@ -1486,6 +1830,8 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
    int count      = (ids.size() == 0 ? numMarkers : ids.size());
    int step       = std::ceil(0.1 * count);
 
+   matrix.adjacencyRowsPresent.assign(numMarkers, false);
+
    std::vector<bool> markersNeeded(numMarkers, false);
    bool hasSource = false;
 
@@ -1568,9 +1914,12 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
       for (int i = 0; i < count; i++)
       {
          if (i != controlId && markerset[i].isActive)
-            computeOneRow(maNum, matrix, threshold, i, numMarkers, controlId,
-                          true, true, noise2, nparLimit, rankCache, rankRows,
-                          workspace);
+          {
+             matrix.markAdjacencyRow(i);
+             computeOneRow(maNum, matrix, threshold, i, numMarkers, controlId,
+                           true, true, noise2, nparLimit, rankCache, rankRows,
+                           workspace);
+          }
 
          if ((i + 1) % step == 0)
          {
@@ -1585,8 +1934,9 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
          if (ids[i] != controlId)
          {
             while (matrix.nmv.size() <= ids[i])
-               matrix.nmv.push_back(NodeMap());
+               matrix.nmv.push_back(AdjacencyRow());
 
+            matrix.markAdjacencyRow(ids[i]);
             computeOneRow(maNum, matrix, threshold, ids[i], numMarkers, controlId,
                           false, false, noise2, nparLimit, rankCache, rankRows,
                           workspace);
@@ -1598,6 +1948,8 @@ void Microarray_Set::createEdgeMatrix(int maNum, Matrix& matrix, double threshol
                          << std::difftime(t2, t1) << std::endl;
             }
          }
+
+   matrix.compactRows();
 
    std::time(&t2);
    std::cout << "Gene: " << count << " Time: " << std::difftime(t2, t1) << std::endl;
