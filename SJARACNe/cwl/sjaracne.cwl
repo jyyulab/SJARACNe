@@ -9,7 +9,7 @@ baseCommand: sjaracne.exe
 inputs:
   preflight_report:
     type: File?
-    doc: Successful hub-overlap validation report; establishes a workflow dependency before bootstrapping
+    doc: Successful hub-overlap validation report; establishes a workflow dependency before resampling
   exp_file:
     type: File
     inputBinding:
@@ -52,12 +52,17 @@ inputs:
       prefix: -a
     doc: algorithm
   sample_number:
-    type: int
-    default: 1
+    type: int?
     inputBinding:
       position: 7
       prefix: -r
-    doc: Bootstrap sample number
+    doc: Deprecated legacy full-size bootstrap with replacement; use subsample_spec for new analyses
+  subsample_spec:
+    type: string?
+    inputBinding:
+      position: 7
+      prefix: -u
+    doc: Fixed-size sampling without replacement as an exact count or explicit percentage, for example 80 or 80%
   aracne_config_dir:
     type: Directory
     inputBinding:

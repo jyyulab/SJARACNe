@@ -79,7 +79,7 @@ The local mode (sjaracne local) runs in parallel by default using cwltool's --pa
 use --serial option.
 
 To use LSF mode, editing the LSF-specific configuration file SJARACNe/config/config_cwlexec.json to change the default 
-queue and adjust memory reservation for each step is necessary. Consider increasing memory reservation for bootstrap 
+queue and adjust memory reservation for each step is necessary. Consider increasing memory reservation for the resampling
 step and consensus step if the dimension of your expression matrix file is large.
 
 
@@ -95,12 +95,54 @@ Those are available in the helping information of the corresponding subcommands,
 ### Outputs
 The main output of SJARACNe is a network file, which is a tab delimited text file with the following columns: source,
 target, mutual information, Pearson and Spearman correlations coefficients, regression line slope and p-value. SJARACNe
-also outputs two meta information files: parameter_info_.txt and bootstrap_info_.txt, which stores SJARACNe 
-input parameters and bootstrap parameters respectively.
+also outputs two meta information files: parameter_info_.txt and bootstrap_info_.txt, which store SJARACNe
+input parameters and resampling metadata, respectively. `bootstrap_info_.txt` is retained as a legacy filename.
+
+### Repeated subsampling of observations
+
+The standard CWL/Python workflow now builds each input network from a fixed-size
+subset sampled **without replacement**. By default, each network uses
+`m = ceil(0.8 * N)` distinct observations, where `N` is the number of eligible
+observations after any conditional selection. Thus, BRCA100 uses 80 of its 100
+samples. The MI significance threshold and optional noise-correction variance are
+calculated using the actual sampled `m`.
+
+For every seed, SJARACNe draws a uniform fixed-size subset with a partial
+Fisher-Yates shuffle, keeps the selected columns in their original order, and
+recomputes ranks on that subset before adaptive-partitioning MI. Because an
+observation can occur at most once, resampling no longer creates duplicated
+joint expression points that can spuriously drive adaptive partitions.
+
+Use `--subsample-fraction` to choose another fraction or `--subsample-size` to
+set an exact count. For example:
+
+```bash
+sjaracne local -e expression.exp -g hubs.txt -n 100 \
+  --subsample-fraction 0.8 -o results -tmp tmp
+
+sjaracne local -e expression.exp -g hubs.txt -n 100 \
+  --subsample-size 80 -o results -tmp tmp
+```
+
+At the native executable level, `-u 80%` and `-u 80` request the corresponding
+without-replacement samples. Native runs use all observations when `-u` is
+omitted. The old `-r` full-size bootstrap-with-replacement path remains available
+only to reproduce legacy analyses; `-r` and `-u` cannot be combined.
+
+In a manual CWL job, `subsample_spec` is a string, so quote both percentages and
+exact counts (for example, `subsample_spec: "80%"` or `subsample_spec: "80"`).
+The low-level `sjaracne.cwl` no longer supplies its historical implicit `-r 1`;
+callers must choose `subsample_spec`, explicitly request legacy `sample_number`,
+or omit both to analyze all observations. Legacy workflow names such as
+`bootstrap_num` and the `TF_run_*.adj` filenames are retained for compatibility.
+
+The 80% default is a pragmatic starting point, not a universal optimum. For an
+important dataset, compare a small sensitivity range (for example, 64%, 80%, and
+90%) and recalibrate any sample-size-dependent MI threshold for each choice.
 
 
 ## Examples to create a transcription factor network
-**Note:** for testing purpose, the number of bootstraps (```-n```) is set to 2, the consensus p-value threshold 
+**Note:** for testing purpose, the number of resampled networks (legacy option ```-n```) is set to 2, the consensus p-value threshold
 ```-pc``` is set to 1.0 in the following examples. ```-n 100``` and ```-pc 1e-5``` are recommended for real 
 applications. Note that there is no / at the end of the -o option but there is a / at the end of the -tmp option.
 The default ```P-value``` for sjaracne is ```1e-7```. The minimum P-value accepted with the ```-pb argument is 1e-10```.
