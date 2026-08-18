@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -59,20 +60,49 @@ def validate_support(path: Path, expected_edges: int) -> int:
         raise RuntimeError(f"Missing/empty support output: {path}")
     with path.open("r", encoding="utf-8", newline="") as handle:
         header = handle.readline().rstrip("\r\n").split("\t")
-        if header != ["source", "target", "support_count", "support_fraction", "mean_mi"]:
+        expected_header = [
+            "source",
+            "target",
+            "consensus_MI",
+            "support_count",
+            "support_fraction",
+            "mean_observed_MI",
+            "consensus_MI_roundtrip_match",
+        ]
+        if header != expected_header:
             raise ValueError(f"Unexpected support header in {path}: {header}")
         rows = 0
+        edges: set[tuple[str, str]] = set()
         for line_number, line in enumerate(handle, 2):
             fields = line.rstrip("\r\n").split("\t")
-            if len(fields) != 5 or not fields[0] or not fields[1]:
+            if len(fields) != len(expected_header) or not fields[0] or not fields[1]:
                 raise ValueError(f"Malformed support row {path}:{line_number}")
-            count = int(fields[2])
-            fraction = float(fields[3])
-            mi = float(fields[4])
-            if not 1 <= count <= 100 or abs(fraction - count / 100.0) > 1e-12:
+            consensus_mi = float(fields[2])
+            count = int(fields[3])
+            fraction = float(fields[4])
+            mean_mi = float(fields[5])
+            roundtrip_match = fields[6]
+            edge = (fields[0], fields[1])
+            if edge in edges or edge[0] == edge[1]:
+                raise ValueError(f"Duplicate/self edge at {path}:{line_number}")
+            edges.add(edge)
+            if (
+                not math.isfinite(fraction)
+                or not 1 <= count <= 100
+                or abs(fraction - count / 100.0) > 1e-12
+            ):
                 raise ValueError(f"Invalid support at {path}:{line_number}")
-            if not (mi > 0.0):
-                raise ValueError(f"Invalid mean MI at {path}:{line_number}")
+            if not (
+                math.isfinite(consensus_mi)
+                and math.isfinite(mean_mi)
+                and consensus_mi > 0.0
+                and mean_mi > 0.0
+            ):
+                raise ValueError(f"Invalid MI at {path}:{line_number}")
+            if roundtrip_match.lower() not in {"true", "1", "yes"}:
+                raise ValueError(
+                    f"Consensus/mean MI round-trip mismatch at {path}:{line_number}"
+                )
             rows += 1
     if rows != expected_edges:
         raise ValueError(
@@ -106,11 +136,23 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     results_root = args.work_root / "results"
+    sweep_design_path = args.work_root / "sweep_design.json"
+    sweep_design = load_json(sweep_design_path)
+    if not isinstance(sweep_design, dict):
+        raise ValueError(f"Expected a JSON object in {sweep_design_path}")
+    expected_points = [str(item["key"]) for item in sweep_design["all_points"]]
+    if not expected_points or len(set(expected_points)) != len(expected_points):
+        raise ValueError(f"Invalid point list in {sweep_design_path}")
     point_roots = sorted(
         path.parent for path in results_root.glob("*/point_manifest.json")
     )
     point_map = {path.name: path for path in point_roots}
-    points = selected_values(args.points, sorted(point_map), "point")
+    if set(point_map) != set(expected_points):
+        raise ValueError(
+            "Point manifests do not exactly match sweep_design.json: "
+            f"expected={sorted(expected_points)}, found={sorted(point_map)}"
+        )
+    points = selected_values(args.points, expected_points, "point")
     drivers = selected_values(args.drivers, list(DRIVERS), "driver")
 
     source = (
@@ -131,14 +173,21 @@ def main() -> int:
     )
     if completed.returncode != 0:
         raise RuntimeError(f"Support helper build failed; see {build_log}")
+    compiler = subprocess.run(
+        ["g++", "--version"], text=True, capture_output=True, check=True
+    ).stdout.splitlines()[0]
     binary_hash = sha256_file(binary)
     source_hash = sha256_file(source)
     consensus_script_hash = sha256_file(
         args.benchmark_repo / "SJARACNe/bin/create_consensus_network.py"
     )
 
+    processed_records = []
     for point in points:
-        point_manifest = load_json(point_map[point] / "point_manifest.json")
+        point_manifest_path = point_map[point] / "point_manifest.json"
+        point_manifest = load_json(point_manifest_path)
+        if not isinstance(point_manifest, dict) or point_manifest.get("key") != point:
+            raise ValueError(f"Invalid point manifest identity: {point_manifest_path}")
         for driver in drivers:
             arm_root = point_map[point] / driver
             adjacency = arm_root / "adjacency"
@@ -173,20 +222,22 @@ def main() -> int:
                     f"Consensus provenance does not match inputs: {point}/{driver}"
                 )
             expected_edges = int(consensus_record["ncol"]["edges"])
-            run_fingerprint = fingerprint(
-                {
-                    "schema": "sjaracne-brca100-pr67-p-sweep-support-v1",
-                    "point": point,
-                    "p_value": point_manifest["p_value"],
-                    "driver": driver,
-                    "consensus_sha256": consensus_hash,
-                    "consensus_fingerprint": expected_consensus_fingerprint,
-                    "consensus_manifest_sha256": sha256_file(consensus_manifest),
-                    "source_sha256": source_hash,
-                    "binary_sha256": binary_hash,
-                    "adjacency_sha256": adjacency_hashes,
-                }
-            )
+            consensus_manifest_hash = sha256_file(consensus_manifest)
+            point_manifest_hash = sha256_file(point_manifest_path)
+            fingerprint_payload = {
+                "schema": "sjaracne-brca100-pr67-p-sweep-support-v1",
+                "point": point,
+                "p_value": point_manifest["p_value"],
+                "driver": driver,
+                "consensus_sha256": consensus_hash,
+                "consensus_fingerprint": expected_consensus_fingerprint,
+                "consensus_manifest_sha256": consensus_manifest_hash,
+                "point_manifest_sha256": point_manifest_hash,
+                "source_sha256": source_hash,
+                "binary_sha256": binary_hash,
+                "adjacency_sha256": adjacency_hashes,
+            }
+            run_fingerprint = fingerprint(fingerprint_payload)
             if manifest.is_file() and output.is_file():
                 existing = load_json(manifest)
                 rows = validate_support(output, expected_edges)
@@ -195,6 +246,14 @@ def main() -> int:
                     and existing.get("output_sha256") == sha256_file(output)
                     and existing.get("retained_edges") == rows
                 ):
+                    if pending.is_file():
+                        pending_record = load_json(pending)
+                        if pending_record != existing:
+                            raise RuntimeError(
+                                f"Final and pending support manifests disagree: {arm_root}"
+                            )
+                        pending.unlink()
+                    processed_records.append(existing)
                     print(f"[SUPPORT] {point}/{driver} resume", flush=True)
                     continue
                 raise RuntimeError(f"Stale support output: {output}")
@@ -210,6 +269,7 @@ def main() -> int:
                     raise RuntimeError(f"Invalid pending support recovery: {pending}")
                 atomic_json(manifest, recovery)
                 pending.unlink()
+                processed_records.append(recovery)
                 print(f"[SUPPORT] {point}/{driver} recovered", flush=True)
                 continue
 
@@ -239,7 +299,15 @@ def main() -> int:
                 "p_value": point_manifest["p_value"],
                 "driver": driver,
                 "command": run_command,
+                "build_command": command,
+                "compiler": compiler,
+                "source_sha256": source_hash,
                 "binary_sha256": binary_hash,
+                "point_manifest_sha256": point_manifest_hash,
+                "consensus_sha256": consensus_hash,
+                "consensus_fingerprint": expected_consensus_fingerprint,
+                "consensus_manifest_sha256": consensus_manifest_hash,
+                "adjacency_sha256": adjacency_hashes,
                 "output": str(output),
                 "output_sha256": sha256_file(temporary),
                 "retained_edges": rows,
@@ -248,11 +316,18 @@ def main() -> int:
             os.replace(temporary, output)
             atomic_json(manifest, record)
             pending.unlink()
+            processed_records.append(record)
 
-    records = []
-    for manifest in sorted(results_root.glob("*/*/support_summary_manifest.json")):
-        records.append(load_json(manifest))
-    atomic_json(results_root / "support_summary_manifest.json", records)
+    atomic_json(
+        results_root / "support_summary_manifest.json",
+        {
+            "schema": "sjaracne-brca100-pr67-p-sweep-support-aggregate-v1",
+            "sweep_design_sha256": sha256_file(sweep_design_path),
+            "points": points,
+            "drivers": drivers,
+            "records": processed_records,
+        },
+    )
     return 0
 
 
