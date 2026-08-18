@@ -35,6 +35,11 @@ The final probability is calculated from the PR67 GPD model so that its MI
 cutoff equals PR66's legacy affine cutoff at `m=80`.  PR66 remains context, not
 ground truth.
 
+Here, Gate 2 means validation against a second, independent stream of
+canonical rank permutations generated under the AP-MI independence null.  It
+is not a held-out BRCA cohort, a biological-reference test, or downstream
+NetBID reproducibility.
+
 Every point is inferred directly with `-p ... -M ...`.  The benchmark does not
 filter or replay a looser adjacency matrix: stored adjacency MIs have limited
 decimal precision, and DPI is applied after seed-level thresholding.
@@ -68,9 +73,46 @@ mkdir -p "$WORK"
 # Equivalent fixed launcher used for the recorded long inference run:
 bash "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_full_inference.sh"
 
+# Recompute the data-section hashes and prove, for all 400 anchor networks,
+# that p=1e-7 reproduces the prior PR67 arm and that the cutoff-match point
+# reproduces PR66.
+"$RUN" python \
+  "$ROOT/benchmarks/brca100_pr67_threshold_sweep/validate_anchor_equivalence.py" \
+  --sweep-work-root "$WORK" \
+  --prior-work-root \
+    "$HOME/sjaracne-benchmarks/brca100-netbid-qc-20260817-rerun"
+
 # Consensus is serialized and keeps the seed-level p fixed per arm.
 "$RUN" python "$SWEEP" --phase consensus \
   --points all --drivers all --seed-start 1 --seed-end 100 --workers 1 \
+  --work-root "$WORK"
+
+# Reconstruct retained-edge support from the same 100 seed networks.
+"$RUN" python \
+  "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_support_summaries.py" \
+  --benchmark-repo "$ROOT" --work-root "$WORK"
+
+# Import every consensus network into NetBID2 and write compact,
+# machine-readable summaries and zero-filled driver target-size tables.
+"$RUN" python \
+  "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_netbid_qc.py" \
+  --points all --drivers all --html-points none --work-root "$WORK"
+
+# Produce matched topology/support tables and deterministic plots, with PR66
+# shown only as context.
+"$RUN" python \
+  "$ROOT/benchmarks/brca100_pr67_threshold_sweep/analyze_sweep.py" \
+  --work-root "$WORK" \
+  --pr66-work-root \
+    "$HOME/sjaracne-benchmarks/brca100-netbid-qc-20260817-rerun"
+
+# After reading the analysis, replace this example with the selected point and
+# its adjacent grid neighbors. All 18 summaries are revalidated/reused first;
+# optional HTML provenance is written separately from the stable summary record.
+SELECTED_HTML_POINTS="p2e-05,p5e-05,p1e-04"
+"$RUN" python \
+  "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_netbid_qc.py" \
+  --points all --drivers all --html-points "$SELECTED_HTML_POINTS" \
   --work-root "$WORK"
 ```
 
@@ -80,15 +122,41 @@ consensus manifests, and an invocation history.  Completed jobs are accepted on
 resume only after their command fingerprint, headers, structure, and adjacency
 SHA-256 are revalidated.
 
+The NetBID2 runner discovers points only from immutable
+`results/<point>/point_manifest.json` files. Compact artifacts live under each
+arm's `netbid2_qc/`; optional reports live separately under
+`netbid2_qc_html/`. Both modes use input-and-environment fingerprints, pending
+manifests, atomic directory promotion, and complete file inventories for safe
+resume and narrow-window crash recovery. The all-arm summary run writes stable
+provenance to `results/netbid2_qc_manifest.json`. A later HTML run requires that
+exact complete summary aggregate, never rewrites it, and writes optional-report
+provenance to `results/netbid2_qc_html_manifest.json` instead.
+
 ## Interpretation
 
-Selection should prioritize the smallest, more stringent directly validated
-`p` at or just beyond the joint TF/SIG coverage-connectivity knee.  At minimum,
-report consensus edges, active-driver fraction, zero-filled target sizes,
-incident-node fraction, weak components, largest-component fraction, MI,
-support, and adjacent-threshold overlap.  Scale-free adjusted R-squared alone
-must not select the operating point: the original extremely sparse PR67 SIG
-network had a high value despite severe driver and connectivity loss.
+The pragmatic topology screen was declared before inspecting the intermediate
+sweep points, but after observing the PR66 and PR67 endpoint networks; it is
+therefore endpoint-informed, not a neutral preregistration.  It nominates the
+smallest, most stringent `p` in the held-out validation range for which **both**
+TF and SIG consensus networks have
+at least 90% active candidate drivers, at least 70% of all expression nodes
+incident to an edge, and at least 95% of incident nodes in the largest weak
+component.  These are engineering non-collapse floors, not statistically or
+biologically optimal cutoffs.  If no point passes, the sweep reports that no
+operating point was found rather than relaxing the floors after inspecting the
+results.  Any nominated value is a provisional topology operating point.  The
+coverage-connectivity knee, adjacent-threshold overlap, and support are
+secondary diagnostics rather than additional pass/fail gates.
+
+At minimum, report consensus edges, active-driver fraction, zero-filled target
+sizes, incident-node fraction, weak components, largest-component fraction,
+MI, support, and adjacent-threshold overlap.  Scale-free adjusted R-squared
+alone must not select the operating point: the original extremely sparse PR67
+SIG network had a high value despite severe driver and connectivity loss.
+Support summaries are conditional on an edge surviving the consensus filter;
+they are not edge-inclusion probabilities or uncertainty intervals.  Plot IQR
+bands describe distributions across the retained edges, not confidence
+intervals or variation across independent benchmark datasets.
 
 The sweep does not establish biological optimality, empirical FDR, or
 independent-cohort NetBID reproducibility.  Those require a later biological
