@@ -67,6 +67,85 @@ ROOT=/mnt/d/GitHub/SJARACNe-brca100-netbid-qc
   "$ROOT/benchmarks/brca100_netbid_qc/smoke_test_netbid2_qc.R"
 ```
 
+After any environment change, regenerate both pinned records:
+
+```bash
+ROOT=/mnt/d/GitHub/SJARACNe-brca100-netbid-qc
+"$ROOT/benchmarks/brca100_netbid_qc/netbid2-r" python \
+  "$ROOT/benchmarks/brca100_netbid_qc/refresh_environment_records.py" \
+  --benchmark-repo "$ROOT"
+```
+
 The generated Linux package lock and R session information are recorded after
 environment creation. Large environment, work, and QC output directories are
 ignored by Git.
+
+## Matched workflow
+
+The resumable runner builds clean snapshots at the three exact commits, stages
+LF-normalized Git inputs on WSL storage, and invokes the native executable for
+seeds 1 through 100. Each completed adjacency is structurally validated and
+checksummed before its `.partial` file is atomically renamed. The adjacency
+directories contain no logs or manifests because the consensus implementation
+opens every entry in its input directory. The Python entry points default to
+`Path.home()/sjaracne-benchmarks/brca100-netbid-qc-20260817-rerun`, which is
+persistent across WSL restarts; `/tmp` must not be used for this multi-hour
+workflow. The commands below also pass the invoking WSL user's `$HOME`
+explicitly because the isolated environment wrapper supplies its own `HOME`.
+
+```bash
+ROOT=/mnt/d/GitHub/SJARACNe-brca100-netbid-qc
+WORK="$HOME/sjaracne-benchmarks/brca100-netbid-qc-20260817-rerun"
+RUN="$ROOT/benchmarks/brca100_netbid_qc/netbid2-r"
+mkdir -p "$WORK"
+
+"$RUN" python "$ROOT/benchmarks/brca100_netbid_qc/run_workflows.py" \
+  --phase build --work-root "$WORK"
+"$RUN" python "$ROOT/benchmarks/brca100_netbid_qc/run_workflows.py" \
+  --phase infer --seed-start 1 --seed-end 100 --workers 12 \
+  --work-root "$WORK"
+```
+
+Consensus is intentionally serialized because the stock implementation keeps
+the union of all seed-level edges in memory. The runner processes PR67 TF,
+PR67 SIG, PR66 TF, PR66 SIG, baseline TF, and baseline SIG in that order, so
+the largest expected union is last. Run the six arms, reconstruct the support
+of every retained edge, render NetBID2 QC, and create cross-stage tables and
+plots with:
+
+```bash
+"$RUN" python "$ROOT/benchmarks/brca100_netbid_qc/run_workflows.py" \
+  --phase consensus --workers 1 --work-root "$WORK"
+"$RUN" python "$ROOT/benchmarks/brca100_netbid_qc/run_support_summaries.py" \
+  --work-root "$WORK"
+"$RUN" python "$ROOT/benchmarks/brca100_netbid_qc/run_netbid_qc_all.py" \
+  --work-root "$WORK"
+"$RUN" python "$ROOT/benchmarks/brca100_netbid_qc/compare_networks.py" \
+  --work-root "$WORK"
+```
+
+The comparison step writes machine-readable network, inference, pairwise,
+driver-size, support, and directed-edge-membership tables. Its plots cover
+network size, target-size and consensus-support ECDFs, paired target sizes,
+common-edge MI, and all seven exact three-stage directed-edge membership
+regions. PNG and SVG versions are emitted with deterministic metadata; the
+compressed TSVs use a fixed gzip timestamp.
+
+The repository-local `benchmarks/brca100_netbid_qc/outputs/checkpoints/`
+directory is ignored by Git and is reserved for manual durable checkpoint
+exports. The workflow does not copy its active WSL-home work tree there
+automatically.
+
+PR67 must receive its packaged `m=80`, `Npar=40` model explicitly. At the kept
+default `p=1e-7`, the cutoff is a GPD-tail extrapolation below the independently
+validated probability range (`p>=2e-5`); the expected warning and model
+provenance are retained in every seed log/header. This benchmark therefore
+describes the resulting topology and NetBID2 QC. It does not by itself prove
+that the PR67 network is biologically superior or that `p=1e-7` is calibrated.
+
+Per-seed elapsed times come from a mixed 12-process workload and are reported
+only as execution diagnostics. They are not a controlled runtime benchmark.
+
+The completed matched-workflow report, comparison tables, plots, and compact
+provenance package are in
+[`results_2026-08-17/`](results_2026-08-17/RESULTS.md).
