@@ -137,6 +137,39 @@ provenance to `results/netbid2_qc_manifest.json`. A later HTML run requires that
 exact complete summary aggregate, never rewrites it, and writes optional-report
 provenance to `results/netbid2_qc_html_manifest.json` instead.
 
+## Compact results package
+
+After the full analysis succeeds, create a reviewable package outside the live
+work root.  The destination and its sibling `.partial` path must not exist.
+
+```bash
+PACKAGE="$ROOT/benchmarks/brca100_pr67_threshold_sweep/results_2026-08-19"
+"$RUN" python \
+  "$ROOT/benchmarks/brca100_pr67_threshold_sweep/package_results.py" \
+  --work-root "$WORK" --output-root "$PACKAGE"
+```
+
+The packager requires the exact 9-point by 2-driver design, 1,800 completed
+seed runs, both completed full-run invocations, 400 anchor comparisons, all
+consensus/support artifacts, all 18 NetBID2 summaries, and a completed analysis
+with exact PR66 cutoff-match evidence.  It copies the compact analysis tables
+and plots, anchor evidence, and immutable design/build/point/arm/aggregate
+manifests.  Optional HTML manifests are included only when their root aggregate
+is complete.  Each optional per-arm record must reproduce the exact
+`run_netbid_qc.py` input fingerprint and command contract, and its three shared
+TSVs must be byte-identical to the already validated stable summary outputs.
+
+Raw adjacencies, full consensus networks, support tables, NetBID2 data products,
+and HTML reports are never copied.  `omitted_artifacts.json` preserves their
+validated hashes and sizes.  The packager rereads every omitted regular file;
+it rejects a current SHA-256 mismatch and also rejects a byte-count mismatch
+where the producing manifest records one.  `.gitattributes` disables text
+conversion, and `SHA256SUMS` covers every package file except itself.  The
+script intentionally
+does not invent a `RESULTS.md`; add the reviewed numerical report later and
+regenerate `SHA256SUMS` with the `write_sha256s()` helper in
+`package_results.py`.
+
 ## Interpretation
 
 The pragmatic topology screen was declared before inspecting the intermediate
