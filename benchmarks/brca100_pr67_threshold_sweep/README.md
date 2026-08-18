@@ -106,6 +106,11 @@ bash "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_full_inference.sh"
   --pr66-work-root \
     "$HOME/sjaracne-benchmarks/brca100-netbid-qc-20260817-rerun"
 
+# Alternatively, run this fixed launcher instead of the five downstream
+# commands above. Do not run both sequences against the same completed root.
+bash \
+  "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_full_downstream.sh"
+
 # After reading the analysis, replace this example with the selected point and
 # its adjacent grid neighbors. All 18 summaries are revalidated/reused first;
 # optional HTML provenance is written separately from the stable summary record.
