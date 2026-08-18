@@ -65,6 +65,9 @@ mkdir -p "$WORK"
   --points all --drivers all --seed-start 1 --seed-end 100 --workers 12 \
   --work-root "$WORK"
 
+# Equivalent fixed launcher used for the recorded long inference run:
+bash "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_full_inference.sh"
+
 # Consensus is serialized and keeps the seed-level p fixed per arm.
 "$RUN" python "$SWEEP" --phase consensus \
   --points all --drivers all --seed-start 1 --seed-end 100 --workers 1 \
