@@ -7,7 +7,7 @@ not establish biological optimality or estimate empirical FDR.
 ## Required evidence
 
 The analyzer is fail-closed. Planned seeds in `point_manifest.json` are not
-execution evidence. It requires all nine sweep points, both TF and SIG arms,
+execution evidence. It requires all 13 sweep points, both TF and SIG arms,
 and exactly seeds 1 through 100 in both `run_manifest.tsv` and the per-seed
 metadata directories.
 
@@ -19,7 +19,7 @@ metadata directories.
   results/
     run_manifest.tsv
     support_summary_manifest.json
-    netbid2_qc_manifest.json                 # optional immutable 18-arm summary aggregate
+    netbid2_qc_manifest.json                 # optional immutable 26-arm summary aggregate
     netbid2_qc_html_manifest.json            # optional HTML aggregate; not analysis input
     <p_key>/
       point_manifest.json
@@ -41,11 +41,11 @@ Before reading network metrics, the analyzer verifies:
   replacement, DPI epsilon 0, consensus p=1e-5, binary/config hashes, and
   pinned BRCA100 input hashes;
 - point-directory identity and agreement with the immutable sweep design;
-- all 1,800 completed seed records, commands, fingerprints, adjacency hashes,
+- all 2,600 completed seed records, commands, fingerprints, adjacency hashes,
   and run-manifest rows;
 - consensus and support fingerprints, manifests, aggregate manifests, and
   output hashes; and
-- if NetBID2 QC exists, all 18 per-arm manifests, output inventories, the
+- if NetBID2 QC exists, all 26 per-arm manifests, output inventories, the
   immutable root summary-aggregate fingerprint, and agreement between NetBID2
   and edge-derived QC. The separate HTML aggregate is presentation provenance
   and is not an input to this analysis.
@@ -86,19 +86,45 @@ anchor overlaps, seed/point/arm provenance, `operating_point_screen.tsv`, and
 package versions, and hashes for every emitted output other than the manifest
 itself.
 
+`network_summary.tsv` reports target-size coverage against the complete,
+zero-filled TF or SIG candidate list. For each target-count threshold
+`N` in `{10, 20, 30, 50, 100}`, the fields
+`target_size_ge_N_driver_count` and `target_size_ge_N_driver_fraction` give the
+number and fraction of candidate drivers with at least `N` consensus targets.
+The fraction denominator is always `candidate_drivers`, including candidates
+with no retained targets.
+
+Recurrence-qualified diagnostics repeat these summaries after restricting
+edges to inclusive support-fraction thresholds `S` in `{20pct, 50pct, 80pct}`:
+
+- `support_ge_S_edges` and `support_ge_S_edge_fraction` count qualifying edges
+  and divide by all consensus edges in that arm;
+- `support_ge_S_target_size_{mean,median,q25,q75}_zero_filled` and
+  `support_ge_S_target_size_max` summarize qualifying targets per candidate;
+  and
+- `support_ge_S_target_size_ge_N_driver_{count,fraction}` gives candidate-driver
+  coverage for every `S` and `N` combination above.
+
+Support is the fraction of the 100 matched seed-level subnetworks containing an
+edge. These recurrence-qualified fields measure stability conditional on the
+edge surviving consensus; they are not biological-truth probabilities, edge
+posterior probabilities, or FDR estimates. They are diagnostics rather than
+selection gates.
+
 The topology engineering floors apply to both TF and SIG:
 
 - active-driver fraction at least 0.90;
 - largest weak-component fraction among incident nodes at least 0.95; and
 - incident-node fraction of the expression universe at least 0.70.
 
-A point is eligible only inside the held-out range `[2e-5, 2e-3]`. Selection
-prefers the smallest passing p on the exact Gate-2 grid (`2e-5`, `5e-5`,
-`1e-4`, `2e-4`). A passing interpolation point is reported only as a
-provisional fallback. If neither class passes, the selected point is null. Any
-selection is a provisional topology operating point, not a biologically
-optimal threshold. These floors were declared after seeing the prior PR66 and
-PR67 endpoints, but before seeing results for the intermediate sweep points.
+A point is eligible only inside the held-out range `[2e-5, 2e-3]`. The topology
+screen chooses the smallest passing p; exact Gate-2-grid status (`2e-5`,
+`5e-5`, `1e-4`, `2e-4`, `5e-4`, or `1e-3`) versus within-range interpolation
+is reported but does not permit skipping a stricter passing point. If no point
+passes, the selected point is null. Any selection is a provisional topology
+operating point, not a biologically optimal threshold or a regulon-density
+selection. These floors were declared after seeing the prior PR66 and PR67
+endpoints, but before seeing results for the intermediate sweep points.
 Gate 2 is a second, independent canonical rank-permutation stream under the
 AP-MI independence null.  It is not a held-out BRCA cohort or biological
 validation.

@@ -11,6 +11,7 @@ import json
 import math
 import os
 from pathlib import Path
+from pathlib import PurePosixPath
 import shutil
 import subprocess
 from typing import Any
@@ -21,7 +22,36 @@ DRIVERS = {
     "sig": ("BRCA100_SIG.txt", "SIG_", 10680),
 }
 POINT_SCHEMA = "sjaracne-brca100-pr67-p-sweep-point-v1"
+LEGACY_SWEEP_DESIGN_SCHEMA = "sjaracne-brca100-pr67-p-sweep-v1"
+SWEEP_DESIGN_SCHEMA = "sjaracne-brca100-pr67-p-sweep-v2"
+SWEEP_DESIGN_MIGRATION_SCHEMA = (
+    "sjaracne-brca100-pr67-p-sweep-design-migration-v1"
+)
+NETBID_MANIFEST_MIGRATION_SCHEMA = (
+    "sjaracne-brca100-pr67-p-sweep-netbid2-manifest-migration-v1"
+)
+SWEEP_DESIGN_HISTORY_DIRECTORY = "sweep_design_history"
+NETBID_MANIFEST_HISTORY_DIRECTORY = "netbid2_manifest_history"
 RUN_SCHEMA = "sjaracne-brca100-pr67-p-sweep-netbid2-v1"
+RUN_FINGERPRINT_FIELDS = frozenset(
+    {
+        "schema",
+        "mode",
+        "point",
+        "p_value",
+        "mi_cutoff",
+        "point_manifest_sha256",
+        "sweep_design_sha256",
+        "driver",
+        "driver_sha256",
+        "consensus_sha256",
+        "consensus_manifest_sha256",
+        "r_script_sha256",
+        "wrapper_sha256",
+        "environment",
+        "prefix",
+    }
+)
 SUMMARY_AGGREGATE_SCHEMA = (
     "sjaracne-brca100-pr67-p-sweep-netbid2-summary-aggregate-v1"
 )
@@ -71,13 +101,30 @@ def fingerprint(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def atomic_json(path: Path, value: object) -> None:
+def serialized_json(value: object) -> bytes:
+    return (
+        json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+
+
+def atomic_bytes(path: Path, value: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     partial = path.with_name(path.name + ".partial")
-    with partial.open("w", encoding="utf-8", newline="\n") as handle:
-        json.dump(value, handle, indent=2, sort_keys=True, allow_nan=False)
-        handle.write("\n")
+    with partial.open("wb") as handle:
+        handle.write(value)
     os.replace(partial, path)
+
+
+def atomic_json(path: Path, value: object) -> None:
+    atomic_bytes(path, serialized_json(value))
+
+
+def ensure_exact_bytes(path: Path, value: bytes, description: str) -> None:
+    if path.exists():
+        if not path.is_file() or path.read_bytes() != value:
+            raise RuntimeError(f"Incompatible existing {description}: {path}")
+        return
+    atomic_bytes(path, value)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -96,7 +143,10 @@ def discover_points(
     if not sweep_design_path.is_file():
         raise FileNotFoundError(sweep_design_path)
     sweep_design = load_json(sweep_design_path)
-    if sweep_design.get("schema") != "sjaracne-brca100-pr67-p-sweep-v1":
+    if sweep_design.get("schema") not in {
+        LEGACY_SWEEP_DESIGN_SCHEMA,
+        SWEEP_DESIGN_SCHEMA,
+    }:
         raise ValueError(f"Unexpected sweep design schema: {sweep_design_path}")
     design_points = sweep_design.get("all_points")
     if not isinstance(design_points, list) or not design_points:
@@ -161,6 +211,177 @@ def discover_points(
         sweep_design,
         sha256_file(sweep_design_path),
     )
+
+
+def require_exact_relative_path(
+    value: object, expected: str, field: str, source: Path
+) -> None:
+    if not isinstance(value, str) or not value or "\\" in value:
+        raise ValueError(f"Invalid {field} in {source}: {value!r}")
+    candidate = PurePosixPath(value)
+    if candidate.is_absolute() or any(part in {"", ".", ".."} for part in candidate.parts):
+        raise ValueError(f"Unsafe {field} in {source}: {value!r}")
+    if candidate.as_posix() != value or value != expected:
+        raise ValueError(
+            f"Unexpected {field} in {source}: {value!r} != {expected!r}"
+        )
+
+
+def load_sweep_design_migration(
+    *,
+    work_root: Path,
+    sweep_design: dict[str, Any],
+    sweep_design_hash: str,
+) -> dict[str, Any] | None:
+    """Validate the exact append-only design history that permits reuse.
+
+    A freshly created v2 root has no history and returns ``None``.  A migrated
+    root is accepted only when its archived v1 bytes and deterministic
+    migration manifest reproduce the active v2 design exactly.
+    """
+    schema = sweep_design.get("schema")
+    if schema == LEGACY_SWEEP_DESIGN_SCHEMA:
+        return None
+    if schema != SWEEP_DESIGN_SCHEMA:
+        raise ValueError(f"Unexpected active sweep schema: {schema!r}")
+
+    history_root = work_root / SWEEP_DESIGN_HISTORY_DIRECTORY
+    if not history_root.exists():
+        return None
+    if not history_root.is_dir():
+        raise RuntimeError(f"Sweep-design history is not a directory: {history_root}")
+    candidates = sorted(
+        history_root.glob(f"*_to_{sweep_design_hash}.migration.json")
+    )
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise RuntimeError(
+            "Expected exactly one sweep-design migration into the active design: "
+            + ", ".join(str(path) for path in candidates)
+        )
+    migration_path = candidates[0]
+    migration = load_json(migration_path)
+    expected_fields = {
+        "schema",
+        "operation",
+        "from",
+        "to",
+        "appended_points",
+        "manifest_path",
+        "fingerprint",
+    }
+    if set(migration) != expected_fields:
+        raise ValueError(
+            f"Unexpected sweep-design migration fields in {migration_path}"
+        )
+    payload = dict(migration)
+    observed_fingerprint = payload.pop("fingerprint")
+    if observed_fingerprint != fingerprint(payload):
+        raise ValueError(
+            f"Sweep-design migration fingerprint mismatch: {migration_path}"
+        )
+    if (
+        migration.get("schema") != SWEEP_DESIGN_MIGRATION_SCHEMA
+        or migration.get("operation") != "append-only-point-extension"
+    ):
+        raise ValueError(f"Unexpected sweep-design migration: {migration_path}")
+
+    from_record = migration.get("from")
+    to_record = migration.get("to")
+    if (
+        not isinstance(from_record, dict)
+        or set(from_record) != {"schema", "sha256", "archived_path", "point_keys"}
+        or not isinstance(to_record, dict)
+        or set(to_record) != {"schema", "sha256", "active_path", "point_keys"}
+    ):
+        raise ValueError(f"Malformed design endpoints in {migration_path}")
+    prior_hash = from_record.get("sha256")
+    if (
+        not isinstance(prior_hash, str)
+        or len(prior_hash) != 64
+        or any(character not in "0123456789abcdef" for character in prior_hash)
+        or from_record.get("schema") != LEGACY_SWEEP_DESIGN_SCHEMA
+        or to_record.get("schema") != SWEEP_DESIGN_SCHEMA
+        or to_record.get("sha256") != sweep_design_hash
+    ):
+        raise ValueError(f"Invalid design endpoints in {migration_path}")
+
+    archive_relative = (
+        f"{SWEEP_DESIGN_HISTORY_DIRECTORY}/{prior_hash}.sweep_design.json"
+    )
+    migration_relative = (
+        f"{SWEEP_DESIGN_HISTORY_DIRECTORY}/"
+        f"{prior_hash}_to_{sweep_design_hash}.migration.json"
+    )
+    require_exact_relative_path(
+        from_record.get("archived_path"),
+        archive_relative,
+        "from.archived_path",
+        migration_path,
+    )
+    require_exact_relative_path(
+        to_record.get("active_path"),
+        "sweep_design.json",
+        "to.active_path",
+        migration_path,
+    )
+    require_exact_relative_path(
+        migration.get("manifest_path"),
+        migration_relative,
+        "manifest_path",
+        migration_path,
+    )
+    if migration_path != work_root / migration_relative:
+        raise ValueError(f"Sweep-design migration path mismatch: {migration_path}")
+
+    archive_path = work_root / archive_relative
+    if not archive_path.is_file() or sha256_file(archive_path) != prior_hash:
+        raise RuntimeError(f"Archived sweep-design bytes changed: {archive_path}")
+    archived_design = load_json(archive_path)
+    old_points = archived_design.get("all_points")
+    new_points = sweep_design.get("all_points")
+    old_keys = from_record.get("point_keys")
+    new_keys = to_record.get("point_keys")
+    if (
+        archived_design.get("schema") != LEGACY_SWEEP_DESIGN_SCHEMA
+        or not isinstance(old_points, list)
+        or not isinstance(new_points, list)
+        or not isinstance(old_keys, list)
+        or not isinstance(new_keys, list)
+        or any(not isinstance(key, str) for key in old_keys + new_keys)
+        or old_keys != [point.get("key") for point in old_points]
+        or new_keys != [point.get("key") for point in new_points]
+        or len(set(old_keys)) != len(old_keys)
+        or len(set(new_keys)) != len(new_keys)
+        or new_points[: len(old_points)] != old_points
+        or migration.get("appended_points") != new_points[len(old_points) :]
+    ):
+        raise ValueError(f"Design migration is not an exact point append: {migration_path}")
+    old_invariants = {
+        key: value
+        for key, value in archived_design.items()
+        if key not in {"schema", "all_points"}
+    }
+    new_invariants = {
+        key: value
+        for key, value in sweep_design.items()
+        if key not in {"schema", "all_points"}
+    }
+    if old_invariants != new_invariants:
+        raise ValueError(
+            f"Design migration changes a fixed sweep invariant: {migration_path}"
+        )
+    return {
+        "prior_sweep_design_sha256": prior_hash,
+        "current_sweep_design_sha256": sweep_design_hash,
+        "prior_point_keys": tuple(old_keys),
+        "current_point_keys": tuple(new_keys),
+        "sweep_migration_path": migration_path,
+        "sweep_migration_relative": migration_relative,
+        "sweep_migration_sha256": sha256_file(migration_path),
+        "sweep_migration_fingerprint": observed_fingerprint,
+    }
 
 
 def select_values(
@@ -342,8 +563,445 @@ def validate_record(
         )
 
 
+def validate_completed_run_record(
+    *,
+    source: Path,
+    root: Path,
+    record: dict[str, Any],
+    expected_payload: dict[str, Any],
+    expected_command: list[str],
+    mode: str,
+    prefix: str,
+    driver_ids: list[str],
+    expected_edges: int,
+    stdout_path: Path,
+    stderr_path: Path,
+    expected_environment: dict[str, str],
+) -> None:
+    """Validate the complete immutable run contract, not just its checksum."""
+    if set(expected_payload) != RUN_FINGERPRINT_FIELDS:
+        raise RuntimeError("Internal NetBID2 fingerprint payload field mismatch")
+    required_fields = RUN_FINGERPRINT_FIELDS | {
+        "fingerprint",
+        "command",
+        "finished_at_utc",
+        "output",
+        "output_inventory",
+        "stdout_sha256",
+        "stderr_sha256",
+        "stderr_bytes",
+    }
+    allowed_fields = required_fields | {"recovered_after_interrupted_manifest"}
+    record_fields = set(record)
+    if record_fields != required_fields and record_fields != allowed_fields:
+        raise RuntimeError(
+            f"NetBID2 manifest has missing/arbitrary fields at {source}: "
+            f"missing={sorted(required_fields - record_fields)}, "
+            f"extra={sorted(record_fields - allowed_fields)}"
+        )
+    if (
+        "recovered_after_interrupted_manifest" in record
+        and record["recovered_after_interrupted_manifest"] is not True
+    ):
+        raise RuntimeError(f"Invalid NetBID2 recovery marker in {source}")
+    mismatches = [
+        field
+        for field, expected in expected_payload.items()
+        if record.get(field) != expected
+    ]
+    if mismatches:
+        raise RuntimeError(
+            f"NetBID2 fingerprint inputs changed in {source}: "
+            + ", ".join(mismatches)
+        )
+    expected_fingerprint = fingerprint(expected_payload)
+    if record.get("fingerprint") != expected_fingerprint:
+        raise RuntimeError(f"NetBID2 fingerprint mismatch in {source}")
+    if record.get("command") != expected_command:
+        raise RuntimeError(f"NetBID2 command mismatch in {source}")
+    if (
+        not isinstance(record.get("finished_at_utc"), str)
+        or not record["finished_at_utc"]
+    ):
+        raise RuntimeError(f"Missing NetBID2 completion timestamp in {source}")
+    output = record.get("output")
+    if not isinstance(output, str) or Path(output).resolve() != root.resolve():
+        raise RuntimeError(f"NetBID2 output path mismatch in {source}")
+    validate_record(
+        root=root,
+        record=record,
+        expected_fingerprint=expected_fingerprint,
+        mode=mode,
+        prefix=prefix,
+        driver_ids=driver_ids,
+        expected_edges=expected_edges,
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        expected_environment=expected_environment,
+    )
+
+
+def manifest_fingerprint_payload(record: dict[str, Any]) -> dict[str, Any]:
+    if not RUN_FINGERPRINT_FIELDS.issubset(record):
+        raise ValueError("NetBID2 manifest lacks fingerprint payload fields")
+    return {field: record[field] for field in RUN_FINGERPRINT_FIELDS}
+
+
+def validate_netbid_migration_audit(
+    *,
+    work_root: Path,
+    migration: dict[str, Any],
+    audit_path: Path,
+    audit: dict[str, Any],
+) -> list[dict[str, Any]]:
+    expected_fields = {
+        "schema",
+        "operation",
+        "sweep_design_migration",
+        "from_sweep_design_sha256",
+        "to_sweep_design_sha256",
+        "migrated_runs",
+        "fingerprint",
+    }
+    if set(audit) != expected_fields:
+        raise RuntimeError(f"Unexpected NetBID2 migration audit fields: {audit_path}")
+    payload = dict(audit)
+    observed_fingerprint = payload.pop("fingerprint")
+    if observed_fingerprint != fingerprint(payload):
+        raise RuntimeError(f"NetBID2 migration audit fingerprint mismatch: {audit_path}")
+    expected_sweep_migration = {
+        "manifest_path": migration["sweep_migration_relative"],
+        "manifest_sha256": migration["sweep_migration_sha256"],
+        "fingerprint": migration["sweep_migration_fingerprint"],
+    }
+    if (
+        audit.get("schema") != NETBID_MANIFEST_MIGRATION_SCHEMA
+        or audit.get("operation")
+        != "refresh-sweep-design-fingerprint-after-append-only-extension"
+        or audit.get("sweep_design_migration") != expected_sweep_migration
+        or audit.get("from_sweep_design_sha256")
+        != migration["prior_sweep_design_sha256"]
+        or audit.get("to_sweep_design_sha256")
+        != migration["current_sweep_design_sha256"]
+    ):
+        raise RuntimeError(f"NetBID2 migration audit provenance mismatch: {audit_path}")
+    runs = audit.get("migrated_runs")
+    if not isinstance(runs, list) or any(not isinstance(item, dict) for item in runs):
+        raise RuntimeError(f"Malformed migrated_runs in {audit_path}")
+    expected_entry_fields = {
+        "point",
+        "driver",
+        "mode",
+        "active_manifest_path",
+        "archived_manifest_path",
+        "archived_manifest_sha256",
+        "current_manifest_sha256",
+        "old_fingerprint",
+        "new_fingerprint",
+    }
+    identities: list[tuple[str, str, str]] = []
+    pair_name = (
+        f"{migration['prior_sweep_design_sha256']}_to_"
+        f"{migration['current_sweep_design_sha256']}"
+    )
+    for entry in runs:
+        if set(entry) != expected_entry_fields:
+            raise RuntimeError(f"Malformed run entry in {audit_path}")
+        point = entry.get("point")
+        driver = entry.get("driver")
+        mode = entry.get("mode")
+        if (
+            not isinstance(point, str)
+            or point not in migration["prior_point_keys"]
+            or driver not in DRIVERS
+            or mode not in {"summary", "html"}
+        ):
+            raise RuntimeError(f"Invalid migrated run identity in {audit_path}")
+        suffix = "netbid2_qc" if mode == "summary" else "netbid2_qc_html"
+        active_relative = f"results/{point}/{driver}/{suffix}_manifest.json"
+        archived_relative = (
+            f"{NETBID_MANIFEST_HISTORY_DIRECTORY}/{pair_name}/arms/"
+            f"{point}/{driver}/{suffix}_manifest.json"
+        )
+        require_exact_relative_path(
+            entry.get("active_manifest_path"),
+            active_relative,
+            "active_manifest_path",
+            audit_path,
+        )
+        require_exact_relative_path(
+            entry.get("archived_manifest_path"),
+            archived_relative,
+            "archived_manifest_path",
+            audit_path,
+        )
+        active_path = work_root / active_relative
+        archived_path = work_root / archived_relative
+        for field in (
+            "archived_manifest_sha256",
+            "current_manifest_sha256",
+            "old_fingerprint",
+            "new_fingerprint",
+        ):
+            value = entry.get(field)
+            if (
+                not isinstance(value, str)
+                or len(value) != 64
+                or any(character not in "0123456789abcdef" for character in value)
+            ):
+                raise RuntimeError(f"Invalid {field} in {audit_path}")
+        if (
+            not active_path.is_file()
+            or not archived_path.is_file()
+            or sha256_file(active_path) != entry["current_manifest_sha256"]
+            or sha256_file(archived_path) != entry["archived_manifest_sha256"]
+        ):
+            raise RuntimeError(f"Migrated NetBID2 manifest bytes changed: {point}/{driver}/{mode}")
+        archived_record = load_json(archived_path)
+        current_record = load_json(active_path)
+        if (
+            archived_record.get("sweep_design_sha256")
+            != migration["prior_sweep_design_sha256"]
+            or current_record.get("sweep_design_sha256")
+            != migration["current_sweep_design_sha256"]
+            or archived_record.get("fingerprint") != entry["old_fingerprint"]
+            or current_record.get("fingerprint") != entry["new_fingerprint"]
+            or fingerprint(manifest_fingerprint_payload(archived_record))
+            != entry["old_fingerprint"]
+            or fingerprint(manifest_fingerprint_payload(current_record))
+            != entry["new_fingerprint"]
+        ):
+            raise RuntimeError(f"Migrated NetBID2 fingerprint changed: {point}/{driver}/{mode}")
+        projected = dict(archived_record)
+        projected["sweep_design_sha256"] = migration["current_sweep_design_sha256"]
+        projected_payload = manifest_fingerprint_payload(projected)
+        projected["fingerprint"] = fingerprint(projected_payload)
+        if projected != current_record:
+            raise RuntimeError(
+                "Migrated NetBID2 manifests differ by more than the sweep-design "
+                f"hash/fingerprint: {point}/{driver}/{mode}"
+            )
+        identities.append((point, driver, mode))
+    if identities != sorted(identities) or len(set(identities)) != len(identities):
+        raise RuntimeError(f"NetBID2 migration audit order/uniqueness mismatch: {audit_path}")
+    return runs
+
+
+def record_netbid_manifest_migration(
+    *,
+    work_root: Path,
+    migration: dict[str, Any],
+    entry: dict[str, Any],
+) -> None:
+    pair_name = (
+        f"{migration['prior_sweep_design_sha256']}_to_"
+        f"{migration['current_sweep_design_sha256']}"
+    )
+    audit_path = (
+        work_root / NETBID_MANIFEST_HISTORY_DIRECTORY / pair_name / "migration.json"
+    )
+    if audit_path.is_file():
+        existing = load_json(audit_path)
+        runs = validate_netbid_migration_audit(
+            work_root=work_root,
+            migration=migration,
+            audit_path=audit_path,
+            audit=existing,
+        )
+    elif audit_path.exists():
+        raise RuntimeError(f"NetBID2 migration audit is not a file: {audit_path}")
+    else:
+        runs = []
+    identity = (entry["point"], entry["driver"], entry["mode"])
+    existing_for_identity = [
+        item
+        for item in runs
+        if (item["point"], item["driver"], item["mode"]) == identity
+    ]
+    if existing_for_identity and existing_for_identity != [entry]:
+        raise RuntimeError(f"NetBID2 migration audit entry changed: {identity}")
+    if not existing_for_identity:
+        runs = [*runs, entry]
+    runs = sorted(runs, key=lambda item: (item["point"], item["driver"], item["mode"]))
+    payload: dict[str, Any] = {
+        "schema": NETBID_MANIFEST_MIGRATION_SCHEMA,
+        "operation": "refresh-sweep-design-fingerprint-after-append-only-extension",
+        "sweep_design_migration": {
+            "manifest_path": migration["sweep_migration_relative"],
+            "manifest_sha256": migration["sweep_migration_sha256"],
+            "fingerprint": migration["sweep_migration_fingerprint"],
+        },
+        "from_sweep_design_sha256": migration["prior_sweep_design_sha256"],
+        "to_sweep_design_sha256": migration["current_sweep_design_sha256"],
+        "migrated_runs": runs,
+    }
+    payload["fingerprint"] = fingerprint(payload)
+    if not audit_path.is_file() or load_json(audit_path) != payload:
+        atomic_json(audit_path, payload)
+    validate_netbid_migration_audit(
+        work_root=work_root,
+        migration=migration,
+        audit_path=audit_path,
+        audit=load_json(audit_path),
+    )
+
+
+def migrate_completed_manifest_if_eligible(
+    *,
+    work_root: Path,
+    migration: dict[str, Any] | None,
+    point: str,
+    driver: str,
+    mode: str,
+    manifest_path: Path,
+    output_root: Path,
+    record: dict[str, Any],
+    expected_payload: dict[str, Any],
+    expected_command: list[str],
+    prefix: str,
+    driver_ids: list[str],
+    expected_edges: int,
+    stdout_path: Path,
+    stderr_path: Path,
+    expected_environment: dict[str, str],
+) -> dict[str, Any]:
+    """Refresh only the design hash of a rigorously validated legacy record."""
+    current_fingerprint = fingerprint(expected_payload)
+    if migration is None or point not in migration["prior_point_keys"]:
+        validate_completed_run_record(
+            source=manifest_path,
+            root=output_root,
+            record=record,
+            expected_payload=expected_payload,
+            expected_command=expected_command,
+            mode=mode,
+            prefix=prefix,
+            driver_ids=driver_ids,
+            expected_edges=expected_edges,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            expected_environment=expected_environment,
+        )
+        return record
+    if expected_payload["sweep_design_sha256"] != migration[
+        "current_sweep_design_sha256"
+    ]:
+        raise RuntimeError("Active NetBID2 payload does not use the migrated design")
+
+    prior_payload = dict(expected_payload)
+    prior_payload["sweep_design_sha256"] = migration["prior_sweep_design_sha256"]
+    prior_fingerprint = fingerprint(prior_payload)
+    mode_suffix = "netbid2_qc" if mode == "summary" else "netbid2_qc_html"
+    pair_name = (
+        f"{migration['prior_sweep_design_sha256']}_to_"
+        f"{migration['current_sweep_design_sha256']}"
+    )
+    archive_path = (
+        work_root
+        / NETBID_MANIFEST_HISTORY_DIRECTORY
+        / pair_name
+        / "arms"
+        / point
+        / driver
+        / f"{mode_suffix}_manifest.json"
+    )
+    manifest_bytes = manifest_path.read_bytes()
+    migrated = False
+    if record.get("fingerprint") == prior_fingerprint:
+        validate_completed_run_record(
+            source=manifest_path,
+            root=output_root,
+            record=record,
+            expected_payload=prior_payload,
+            expected_command=expected_command,
+            mode=mode,
+            prefix=prefix,
+            driver_ids=driver_ids,
+            expected_edges=expected_edges,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            expected_environment=expected_environment,
+        )
+        ensure_exact_bytes(
+            archive_path, manifest_bytes, "archived pre-extension NetBID2 manifest"
+        )
+        record = dict(record)
+        record["sweep_design_sha256"] = migration["current_sweep_design_sha256"]
+        record["fingerprint"] = current_fingerprint
+        atomic_json(manifest_path, record)
+        record = load_json(manifest_path)
+        migrated = True
+    elif record.get("fingerprint") != current_fingerprint:
+        raise RuntimeError(
+            "Completed NetBID2 manifest matches neither the active design nor the "
+            f"single archived predecessor: {manifest_path}"
+        )
+
+    validate_completed_run_record(
+        source=manifest_path,
+        root=output_root,
+        record=record,
+        expected_payload=expected_payload,
+        expected_command=expected_command,
+        mode=mode,
+        prefix=prefix,
+        driver_ids=driver_ids,
+        expected_edges=expected_edges,
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        expected_environment=expected_environment,
+    )
+    if not archive_path.exists():
+        if migrated:
+            raise RuntimeError(f"NetBID2 manifest archive disappeared: {archive_path}")
+        return record
+    if not archive_path.is_file():
+        raise RuntimeError(f"NetBID2 manifest archive is not a file: {archive_path}")
+    archived_record = load_json(archive_path)
+    validate_completed_run_record(
+        source=archive_path,
+        root=output_root,
+        record=archived_record,
+        expected_payload=prior_payload,
+        expected_command=expected_command,
+        mode=mode,
+        prefix=prefix,
+        driver_ids=driver_ids,
+        expected_edges=expected_edges,
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        expected_environment=expected_environment,
+    )
+    projected = dict(archived_record)
+    projected["sweep_design_sha256"] = migration["current_sweep_design_sha256"]
+    projected["fingerprint"] = current_fingerprint
+    if projected != record:
+        raise RuntimeError(
+            "Archived/current NetBID2 manifests differ by more than the exact "
+            f"design-hash migration: {manifest_path}"
+        )
+    active_relative = manifest_path.relative_to(work_root).as_posix()
+    archived_relative = archive_path.relative_to(work_root).as_posix()
+    entry = {
+        "point": point,
+        "driver": driver,
+        "mode": mode,
+        "active_manifest_path": active_relative,
+        "archived_manifest_path": archived_relative,
+        "archived_manifest_sha256": sha256_file(archive_path),
+        "current_manifest_sha256": sha256_file(manifest_path),
+        "old_fingerprint": prior_fingerprint,
+        "new_fingerprint": current_fingerprint,
+    }
+    record_netbid_manifest_migration(
+        work_root=work_root, migration=migration, entry=entry
+    )
+    return record
+
+
 def run_mode(
     *,
+    work_root: Path,
     point: dict[str, Any],
     driver: str,
     driver_file: Path,
@@ -356,6 +1014,7 @@ def run_mode(
     r_script_hash: str,
     environment: dict[str, str],
     sweep_design_hash: str,
+    design_migration: dict[str, Any] | None,
 ) -> dict[str, Any]:
     arm_root = point["root"] / driver
     consensus = arm_root / "consensus/consensus_network_ncol_.txt"
@@ -400,14 +1059,40 @@ def run_mode(
         "prefix": prefix,
     }
     run_fingerprint = fingerprint(fingerprint_payload)
+    command = [
+        str(wrapper),
+        "Rscript",
+        str(r_script),
+        str(consensus),
+        str(driver_file),
+        str(partial_root),
+        prefix,
+        "true" if mode == "html" else "false",
+    ]
 
     if manifest_path.is_file() and output_root.is_dir():
+        if partial_root.exists():
+            raise RuntimeError(
+                f"Completed and partial NetBID2 outputs both exist: {arm_root}"
+            )
         record = load_json(manifest_path)
-        validate_record(
-            root=output_root,
-            record=record,
-            expected_fingerprint=run_fingerprint,
+        if pending_path.exists():
+            pending_record = load_json(pending_path)
+            if pending_record != record:
+                raise RuntimeError(
+                    f"Pending/completed NetBID2 manifests disagree: {pending_path}"
+                )
+        record = migrate_completed_manifest_if_eligible(
+            work_root=work_root,
+            migration=design_migration,
+            point=point["key"],
+            driver=driver,
             mode=mode,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            record=record,
+            expected_payload=fingerprint_payload,
+            expected_command=command,
             prefix=prefix,
             driver_ids=driver_ids,
             expected_edges=expected_edges,
@@ -416,11 +1101,6 @@ def run_mode(
             expected_environment=environment,
         )
         if pending_path.exists():
-            pending_record = load_json(pending_path)
-            if pending_record != record:
-                raise RuntimeError(
-                    f"Pending/completed NetBID2 manifests disagree: {pending_path}"
-                )
             pending_path.unlink()
         print(f"[NETBID2 {mode.upper()}] {point['key']}/{driver} resume", flush=True)
         return record
@@ -463,17 +1143,6 @@ def run_mode(
         raise RuntimeError(f"Unverifiable NetBID2 state under {arm_root}")
     if partial_root.exists():
         shutil.rmtree(partial_root)
-
-    command = [
-        str(wrapper),
-        "Rscript",
-        str(r_script),
-        str(consensus),
-        str(driver_file),
-        str(partial_root),
-        prefix,
-        "true" if mode == "html" else "false",
-    ]
     print(f"[NETBID2 {mode.upper()}] {point['key']}/{driver}", flush=True)
     with stdout_path.open("w", encoding="utf-8", newline="\n") as stdout, \
             stderr_path.open("w", encoding="utf-8", newline="\n") as stderr:
@@ -539,7 +1208,12 @@ def finalized_aggregate(payload: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     args = parse_args()
     results_root = args.work_root / "results"
-    discovered, _sweep_design, sweep_design_hash = discover_points(args.work_root)
+    discovered, sweep_design, sweep_design_hash = discover_points(args.work_root)
+    design_migration = load_sweep_design_migration(
+        work_root=args.work_root,
+        sweep_design=sweep_design,
+        sweep_design_hash=sweep_design_hash,
+    )
     point_map = {point["key"]: point for point in discovered}
     available_points = [point["key"] for point in discovered]
     point_keys = select_values(args.points, available_points, "point")
@@ -600,6 +1274,7 @@ def main() -> int:
                     f"Driver input does not match point manifest: {key}/{driver}"
                 )
             summary = run_mode(
+                work_root=args.work_root,
                 point=point,
                 driver=driver,
                 driver_file=driver_file,
@@ -612,6 +1287,7 @@ def main() -> int:
                 r_script_hash=r_script_hash,
                 environment=environment,
                 sweep_design_hash=sweep_design_hash,
+                design_migration=design_migration,
             )
             summary_records.append(summary)
             summary_by_arm[(key, driver)] = summary
@@ -659,6 +1335,7 @@ def main() -> int:
         for driver in driver_keys:
             driver_file, driver_ids, prefix = arm_context[(key, driver)]
             html = run_mode(
+                work_root=args.work_root,
                 point=point,
                 driver=driver,
                 driver_file=driver_file,
@@ -671,6 +1348,7 @@ def main() -> int:
                 r_script_hash=r_script_hash,
                 environment=environment,
                 sweep_design_hash=sweep_design_hash,
+                design_migration=design_migration,
             )
             summary = summary_by_arm[(key, driver)]
             for filename_to_match in (

@@ -49,11 +49,15 @@ EXPECTED_POINTS = {
     "p2e-04": 2e-4,
     "p3e-04": 3e-4,
     "p_pr66_cutoff_match": 0.000352804562601613,
+    "p4e-04": 4e-4,
+    "p5e-04": 5e-4,
+    "p7p5e-04": 7.5e-4,
+    "p1e-03": 1e-3,
 }
 EXPECTED_SEEDS = tuple(range(1, 101))
 HELD_OUT_P_MIN = 2e-5
 HELD_OUT_P_MAX = 2e-3
-EXACT_GATE2_GRID = frozenset((2e-5, 5e-5, 1e-4, 2e-4))
+EXACT_GATE2_GRID = frozenset((2e-5, 5e-5, 1e-4, 2e-4, 5e-4, 1e-3))
 ENGINEERING_FLOORS = {
     "active_driver_fraction": 0.90,
     "largest_weak_component_fraction_incident": 0.95,
@@ -81,6 +85,8 @@ EXPECTED_SUPPORT_COLUMNS = (
     "mean_observed_MI",
     "consensus_MI_roundtrip_match",
 )
+TARGET_COUNT_THRESHOLDS = (10, 20, 30, 50, 100)
+SUPPORT_FRACTION_THRESHOLDS = (0.20, 0.50, 0.80)
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SVG_METADATA = {
     "Creator": "SJARACNe BRCA100 PR67 threshold sweep",
@@ -253,7 +259,7 @@ def validate_sweep_design(
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], str, dict[str, Any]]:
     path = work_root / "sweep_design.json"
     design = read_json(path)
-    if design.get("schema") != "sjaracne-brca100-pr67-p-sweep-v1":
+    if design.get("schema") != "sjaracne-brca100-pr67-p-sweep-v2":
         raise ValueError(f"Unexpected sweep design schema in {path}")
     if design.get("commit") != PR67_COMMIT:
         raise ValueError(f"Sweep design does not pin PR67 commit {PR67_COMMIT}")
@@ -1048,6 +1054,41 @@ def distribution_metrics(values: pd.Series, prefix: str) -> dict[str, float]:
     }
 
 
+def zero_filled_target_sizes(
+    frame: pd.DataFrame, candidates: list[str]
+) -> pd.Series:
+    """Count directed targets per candidate, retaining candidates with zero targets."""
+    return (
+        frame.groupby(level="source", sort=False)
+        .size()
+        .reindex(candidates, fill_value=0)
+    )
+
+
+def target_size_coverage_metrics(
+    target_sizes: pd.Series, prefix: str
+) -> dict[str, int | float]:
+    """Summarize candidate-driver coverage at fixed target-count thresholds."""
+    if target_sizes.empty:
+        raise ValueError("Target-size coverage requires at least one candidate driver")
+    result: dict[str, int | float] = {}
+    for minimum_targets in TARGET_COUNT_THRESHOLDS:
+        driver_count = int((target_sizes >= minimum_targets).sum())
+        field = f"{prefix}_ge_{minimum_targets}"
+        result[f"{field}_driver_count"] = driver_count
+        result[f"{field}_driver_fraction"] = driver_count / len(target_sizes)
+    return result
+
+
+def support_threshold_token(threshold: float) -> str:
+    """Return a stable field-name token for a configured support threshold."""
+    percentage = threshold * 100.0
+    rounded = round(percentage)
+    if not math.isclose(percentage, rounded, rel_tol=0.0, abs_tol=1e-12):
+        raise ValueError(f"Support threshold is not an integer percentage: {threshold}")
+    return f"{rounded:02d}pct"
+
+
 def summarize_network(
     frame: pd.DataFrame,
     candidates: list[str],
@@ -1084,11 +1125,45 @@ def summarize_network(
             raise ValueError(
                 f"Support counts/fractions disagree with {seed_runs} matched seeds for {prefix}"
             )
-    target_sizes = (
-        frame.groupby(level="source", sort=False)
-        .size()
-        .reindex(candidates, fill_value=0)
-    )
+    target_sizes = zero_filled_target_sizes(frame, candidates)
+    target_coverage = target_size_coverage_metrics(target_sizes, "target_size")
+    recurrence_metrics: dict[str, Any] = {
+        "recurrence_qualified_target_interpretation": (
+            "zero-filled candidate-driver target counts restricted to consensus "
+            "edges observed in at least the stated fraction of matched seed-level "
+            "subnetworks; recurrence measures stability, not biological truth, an "
+            "edge probability, or FDR"
+        )
+    }
+    for support_threshold in SUPPORT_FRACTION_THRESHOLDS:
+        threshold_token = support_threshold_token(support_threshold)
+        qualified = frame.loc[frame["support_fraction"] >= support_threshold]
+        qualified_target_sizes = zero_filled_target_sizes(qualified, candidates)
+        metric_prefix = f"support_ge_{threshold_token}_target_size"
+        recurrence_metrics[f"support_ge_{threshold_token}_edges"] = len(qualified)
+        recurrence_metrics[f"support_ge_{threshold_token}_edge_fraction"] = (
+            len(qualified) / len(frame) if len(frame) else 0.0
+        )
+        recurrence_metrics.update(
+            {
+                f"{metric_prefix}_mean_zero_filled": float(
+                    qualified_target_sizes.mean()
+                ),
+                f"{metric_prefix}_median_zero_filled": float(
+                    qualified_target_sizes.median()
+                ),
+                f"{metric_prefix}_q25_zero_filled": float(
+                    qualified_target_sizes.quantile(0.25)
+                ),
+                f"{metric_prefix}_q75_zero_filled": float(
+                    qualified_target_sizes.quantile(0.75)
+                ),
+                f"{metric_prefix}_max": int(qualified_target_sizes.max()),
+            }
+        )
+        recurrence_metrics.update(
+            target_size_coverage_metrics(qualified_target_sizes, metric_prefix)
+        )
     incident_nodes, components, largest = weak_connectivity(frame.index)
     p_value = float(prefix.get("p_value", math.nan))
     row: dict[str, Any] = {
@@ -1122,6 +1197,8 @@ def summarize_network(
         "target_size_q25_zero_filled": float(target_sizes.quantile(0.25)),
         "target_size_q75_zero_filled": float(target_sizes.quantile(0.75)),
         "target_size_max": int(target_sizes.max()),
+        **target_coverage,
+        **recurrence_metrics,
         **distribution_metrics(frame["support_fraction"], "support_fraction"),
         **distribution_metrics(frame["support_count"], "support_count"),
         **distribution_metrics(frame["MI"], "consensus_MI"),
@@ -1578,7 +1655,7 @@ def integrate_optional_netbid2(
         return result, arms
     if present != set(expected_keys):
         raise ValueError(
-            "NetBID2 QC is partially present; either provide all 18 arm summaries or none. "
+            "NetBID2 QC is partially present; either provide all 26 arm summaries or none. "
             f"Missing={sorted(set(expected_keys) - present)}"
         )
     aggregate_path = points[0]["root"].parent / "netbid2_qc_manifest.json"
@@ -1631,7 +1708,7 @@ def integrate_optional_netbid2(
         raise ValueError(f"NetBID2 aggregate fingerprint mismatch: {aggregate_path}")
     summary_runs = aggregate.get("summary_runs")
     if not isinstance(summary_runs, list) or len(summary_runs) != len(expected_keys):
-        raise ValueError(f"NetBID2 aggregate does not contain all 18 summary runs")
+        raise ValueError("NetBID2 aggregate does not contain all 26 summary runs")
     aggregate_summary_by_arm: dict[tuple[str, str], dict[str, Any]] = {}
     for record in summary_runs:
         if not isinstance(record, dict):
@@ -1859,19 +1936,15 @@ def operating_point_screen(
         .drop_duplicates(["p_key", "p_value", "calibration_point_class"])
         .sort_values("p_value")
     )
-    exact = candidates[candidates["exact_gate2_grid_point"]]
-    interpolated = candidates[
-        candidates["calibration_point_class"]
-        == "interpolation-within-accepted-range"
-    ]
     selected: pd.Series | None = None
     selection_status = "no-passing-point"
-    if not exact.empty:
-        selected = exact.iloc[0]
-        selection_status = "selected-exact-gate2-grid-point"
-    elif not interpolated.empty:
-        selected = interpolated.iloc[0]
-        selection_status = "provisional-interpolated-fallback"
+    if not candidates.empty:
+        selected = candidates.iloc[0]
+        selection_status = (
+            "selected-exact-gate2-grid-point"
+            if bool(selected["exact_gate2_grid_point"])
+            else "provisional-interpolated-operating-point"
+        )
     selection = {
         "schema": "sjaracne-brca100-pr67-threshold-selection-v1",
         "selection_status": selection_status,
@@ -1885,15 +1958,17 @@ def operating_point_screen(
         ),
         "rule": (
             "Among points passing all three engineering floors for both TF and SIG "
-            "inside the held-out range, choose the smallest p on the exact Gate-2 "
-            "grid; use the smallest interpolated p only if no exact-tested point passes."
+            "inside the held-out range, choose the smallest p. Exact Gate-2 grid "
+            "status versus within-range interpolation is reported but does not permit "
+            "skipping a stricter passing point."
         ),
         "engineering_floors": ENGINEERING_FLOORS,
         "held_out_p_range": [HELD_OUT_P_MIN, HELD_OUT_P_MAX],
         "exact_gate2_grid": sorted(EXACT_GATE2_GRID),
         "scope": (
             "Provisional topology operating-point screen only; not biological "
-            "validation and not an empirical FDR estimate."
+            "validation, not an empirical FDR estimate, and not a regulon-density "
+            "selection rule."
         ),
         "declaration_timing": (
             "Engineering floors were declared after observing the prior PR66/PR67 "

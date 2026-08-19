@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Create a compact, checksummed package from a completed PR67 p-value sweep.
 
-The packager is deliberately fail-closed.  It accepts only the exact nine-point,
-two-driver BRCA100 design, a completed analysis with PR66 anchor evidence, all
-18 consensus/support/NetBID2 summary arms, and an immutable full-run manifest.
+The packager is deliberately fail-closed.  It accepts only the exact
+thirteen-point, two-driver BRCA100 design, a completed analysis with PR66
+anchor evidence, all 26 consensus/support/NetBID2 summary arms, and an
+immutable full-run manifest.
 Large scientific artifacts are never copied.  Their analysis-validated hashes
 are rechecked against the current bytes and recorded in
 ``omitted_artifacts.json`` instead.
@@ -46,9 +47,14 @@ POINTS = (
     ("p2e-04", 2e-4),
     ("p3e-04", 3e-4),
     ("p_pr66_cutoff_match", 0.000352804562601613),
+    ("p4e-04", 4e-4),
+    ("p5e-04", 5e-4),
+    ("p7p5e-04", 7.5e-4),
+    ("p1e-03", 1e-3),
 )
 POINT_KEYS = tuple(key for key, _value in POINTS)
 POINT_P = dict(POINTS)
+LEGACY_POINT_KEYS = POINT_KEYS[:9]
 SEEDS = tuple(range(1, 101))
 PR67_COMMIT = "7633ebb4a0d966dbda15a4e32d0efa492fb71aeb"
 NULL_MODEL_SHA256 = (
@@ -282,7 +288,9 @@ def validate_analysis(work_root: Path) -> tuple[dict[str, Any], Path]:
     same_path(manifest.get("work_root"), work_root, "analysis work_root", manifest_path)
     same_path(manifest.get("output_root"), analysis_root, "analysis output_root", manifest_path)
     if manifest.get("p_keys_in_increasing_p_order") != list(POINT_KEYS):
-        raise ValueError("Analysis does not cover the exact ordered nine-point sweep")
+        raise ValueError(
+            "Analysis does not cover the exact ordered thirteen-point sweep"
+        )
     if int(manifest.get("matched_seed_count", -1)) != len(SEEDS):
         raise ValueError(f"Analysis does not record {len(SEEDS)} matched seeds")
     if manifest.get("build", {}).get("commit") != PR67_COMMIT:
@@ -328,7 +336,10 @@ def validate_analysis(work_root: Path) -> tuple[dict[str, Any], Path]:
     arms = manifest.get("arms")
     expected_arms = {f"{point}/{driver}" for point in POINT_KEYS for driver in DRIVERS}
     if not isinstance(arms, dict) or set(arms) != expected_arms:
-        raise ValueError("Analysis arm provenance does not exactly cover 18 arms")
+        raise ValueError(
+            "Analysis arm provenance does not exactly cover "
+            f"{len(POINT_KEYS) * len(DRIVERS)} arms"
+        )
     required_arm_hashes = {
         "adjacency_set_sha256",
         "seed_metadata_set_sha256",
@@ -374,7 +385,7 @@ def validate_design_and_build(
     if design_hash != analysis.get("sweep_design_sha256"):
         raise ValueError("sweep_design.json changed after analysis")
     if (
-        design.get("schema") != "sjaracne-brca100-pr67-p-sweep-v1"
+        design.get("schema") != "sjaracne-brca100-pr67-p-sweep-v2"
         or design.get("commit") != PR67_COMMIT
         or design.get("null_model_sha256") != NULL_MODEL_SHA256
     ):
@@ -394,7 +405,9 @@ def validate_design_and_build(
     if not isinstance(points, list) or [point.get("key") for point in points] != list(
         POINT_KEYS
     ):
-        raise ValueError("Sweep design does not contain the exact ordered nine points")
+        raise ValueError(
+            "Sweep design does not contain the exact ordered thirteen points"
+        )
     for point in points:
         key = point["key"]
         if not math.isclose(
@@ -467,6 +480,71 @@ def validate_design_and_build(
         "rehashed-by-packager",
     )
     evidence.copy(design_path, "provenance/sweep_design.json", "sweep-design")
+
+    history_root = work_root / "sweep_design_history"
+    migration_paths = sorted(history_root.glob("*.migration.json"))
+    archive_paths = sorted(history_root.glob("*.sweep_design.json"))
+    if len(migration_paths) != 1 or len(archive_paths) != 1:
+        raise ValueError(
+            "Extended sweep requires exactly one archived v1 design and migration record"
+        )
+    migration_path = migration_paths[0]
+    archive_path = archive_paths[0]
+    migration = load_json(migration_path)
+    archived = load_json(archive_path)
+    migration_fingerprint = migration.get("fingerprint")
+    migration_payload = dict(migration)
+    migration_payload.pop("fingerprint", None)
+    archive_hash = sha256_file(archive_path)
+    archived_invariants = {
+        key: value
+        for key, value in archived.items()
+        if key not in {"schema", "all_points"}
+    }
+    active_invariants = {
+        key: value
+        for key, value in design.items()
+        if key not in {"schema", "all_points"}
+    }
+    expected_history = {
+        "schema": "sjaracne-brca100-pr67-p-sweep-design-migration-v1",
+        "operation": "append-only-point-extension",
+        "from_schema": "sjaracne-brca100-pr67-p-sweep-v1",
+        "to_schema": "sjaracne-brca100-pr67-p-sweep-v2",
+    }
+    if (
+        migration.get("schema") != expected_history["schema"]
+        or migration.get("operation") != expected_history["operation"]
+        or not isinstance(migration.get("from"), dict)
+        or not isinstance(migration.get("to"), dict)
+        or migration["from"].get("schema") != expected_history["from_schema"]
+        or migration["to"].get("schema") != expected_history["to_schema"]
+        or migration["from"].get("sha256") != archive_hash
+        or migration["to"].get("sha256") != design_hash
+        or migration["from"].get("archived_path")
+        != archive_path.relative_to(work_root).as_posix()
+        or migration["to"].get("active_path") != "sweep_design.json"
+        or migration.get("manifest_path")
+        != migration_path.relative_to(work_root).as_posix()
+        or migration_fingerprint != json_fingerprint(migration_payload)
+        or archived.get("schema") != expected_history["from_schema"]
+        or archived.get("all_points") != points[: len(LEGACY_POINT_KEYS)]
+        or archived_invariants != active_invariants
+        or migration["from"].get("point_keys") != list(LEGACY_POINT_KEYS)
+        or migration["to"].get("point_keys") != list(POINT_KEYS)
+        or migration.get("appended_points") != points[len(LEGACY_POINT_KEYS) :]
+    ):
+        raise ValueError("Invalid append-only sweep-design migration evidence")
+    evidence.copy(
+        archive_path,
+        f"provenance/sweep_design_history/{archive_path.name}",
+        "archived-sweep-design",
+    )
+    evidence.copy(
+        migration_path,
+        f"provenance/sweep_design_history/{migration_path.name}",
+        "sweep-design-migration",
+    )
     evidence.copy(
         build_path,
         "provenance/builds/pr67_7633ebb/build_manifest.json",
@@ -475,7 +553,9 @@ def validate_design_and_build(
 
     manifests = sorted((work_root / "results").glob("*/point_manifest.json"))
     if [path.parent.name for path in manifests] != sorted(POINT_KEYS):
-        raise ValueError("Point manifests do not exactly cover the nine-point sweep")
+        raise ValueError(
+            "Point manifests do not exactly cover the thirteen-point sweep"
+        )
     point_records: list[dict[str, Any]] = []
     design_by_key = {point["key"]: point for point in points}
     for key in POINT_KEYS:
@@ -816,8 +896,11 @@ def validate_consensus_support(
     ):
         raise ValueError("Support aggregate does not describe the complete sweep")
     records = aggregate.get("records")
-    if not isinstance(records, list) or len(records) != 18:
-        raise ValueError("Support aggregate does not contain 18 arms")
+    expected_arm_count = len(POINT_KEYS) * len(DRIVERS)
+    if not isinstance(records, list) or len(records) != expected_arm_count:
+        raise ValueError(
+            f"Support aggregate does not contain {expected_arm_count} arms"
+        )
     expected_order = [(point, driver) for point in POINT_KEYS for driver in DRIVERS]
     observed_order = [(record.get("point"), record.get("driver")) for record in records]
     if observed_order != expected_order:
@@ -1410,6 +1493,65 @@ def add_analysis_copy_plan(
     )
 
 
+def validate_optional_netbid_migration_history(
+    work_root: Path, evidence: PackageEvidence
+) -> None:
+    """Validate and package any audited v1-to-v2 NetBID manifest refresh."""
+    history_root = work_root / "netbid2_manifest_history"
+    if not history_root.exists():
+        return
+    if not history_root.is_dir():
+        raise ValueError(f"NetBID2 manifest history is not a directory: {history_root}")
+    migration_paths = sorted(history_root.glob("*_to_*/migration.json"))
+    if len(migration_paths) != 1:
+        raise ValueError("Expected exactly one NetBID2 manifest migration audit")
+
+    import run_netbid_qc as netbid_qc
+
+    sweep_path = work_root / "sweep_design.json"
+    sweep_design = load_json(sweep_path)
+    sweep_hash = sha256_file(sweep_path)
+    design_migration = netbid_qc.load_sweep_design_migration(
+        work_root=work_root,
+        sweep_design=sweep_design,
+        sweep_design_hash=sweep_hash,
+    )
+    if design_migration is None:
+        raise ValueError("NetBID2 history exists without a sweep-design migration")
+    migration_path = migration_paths[0]
+    runs = netbid_qc.validate_netbid_migration_audit(
+        work_root=work_root,
+        migration=design_migration,
+        audit_path=migration_path,
+        audit=load_json(migration_path),
+    )
+    summary_identities = {
+        (str(item["point"]), str(item["driver"]))
+        for item in runs
+        if item.get("mode") == "summary"
+    }
+    expected_summaries = {
+        (point, driver) for point in LEGACY_POINT_KEYS for driver in DRIVERS
+    }
+    if summary_identities != expected_summaries:
+        raise ValueError(
+            "NetBID2 migration audit does not cover every legacy summary arm"
+        )
+    evidence.copy(
+        migration_path,
+        "provenance/netbid2_manifest_history/migration.json",
+        "netbid2-manifest-migration",
+    )
+    for item in runs:
+        archive = work_root / str(item["archived_manifest_path"])
+        evidence.copy(
+            archive,
+            "provenance/netbid2_manifest_history/"
+            f"arms/{item['point']}/{item['driver']}/{item['mode']}_manifest.json",
+            "archived-netbid2-manifest",
+        )
+
+
 def assert_no_forbidden_payloads(root: Path) -> None:
     forbidden_names = {
         "consensus_network_ncol_.txt",
@@ -1484,6 +1626,7 @@ def package_results(work_root: Path, output_root: Path) -> Path:
     validate_anchor(work_root, analysis, evidence)
     validate_consensus_support(work_root, analysis, by_arm, evidence)
     validate_netbid(work_root, analysis, evidence)
+    validate_optional_netbid_migration_history(work_root, evidence)
     add_analysis_copy_plan(analysis_root, analysis, evidence)
 
     output_root.parent.mkdir(parents=True, exist_ok=True)
@@ -1570,8 +1713,12 @@ def package_results(work_root: Path, output_root: Path) -> Path:
         atomic_json(staging / "package_manifest.json", package_manifest)
         assert_no_forbidden_payloads(staging)
         write_sha256s(staging)
-        expected_checksum_entries = sum(1 for path in staging.rglob("*") if path.is_file()) - 1
-        actual_checksum_entries = len((staging / "SHA256SUMS").read_text(encoding="utf-8").splitlines())
+        expected_checksum_entries = (
+            sum(1 for path in staging.rglob("*") if path.is_file()) - 1
+        )
+        actual_checksum_entries = len(
+            (staging / "SHA256SUMS").read_text(encoding="utf-8").splitlines()
+        )
         if actual_checksum_entries != expected_checksum_entries:
             raise RuntimeError("SHA256SUMS does not cover every non-self package file")
         os.replace(staging, output_root)
