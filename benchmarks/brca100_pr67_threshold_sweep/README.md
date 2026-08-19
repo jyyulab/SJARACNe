@@ -23,7 +23,11 @@ The original nine-point, independently audited sweep is summarized in
 [results_2026-08-19/RESULTS.md](results_2026-08-19/RESULTS.md). It nominates
 `p=3e-4` only as a provisional BRCA100 topology operating point. The appended
 four-point extension addresses the separate concern that its median regulon
-sizes may be too small for robust downstream activity estimation.
+sizes may be too small for robust downstream activity estimation. The
+completed extension and its recurrence-qualified target-coverage results are
+reported in
+[results_extended_2026-08-19/RESULTS.md](results_extended_2026-08-19/RESULTS.md).
+It does not nominate a new default.
 
 ## Grid
 
