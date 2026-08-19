@@ -407,6 +407,7 @@ def make_fixture(root: Path) -> tuple[dict[str, str], str]:
             "driver_target_sizes.tsv",
             "netbid_environment.tsv",
             "network_summary.tsv",
+            f"{prefix}netQC.Rmd",
             f"{prefix}netQC.html",
         ):
             (html_root / filename).write_bytes((filename + "\n").encode("ascii"))
@@ -612,6 +613,7 @@ class PackageResultsTest(unittest.TestCase):
                     )
                     self.assertFalse(any(output.rglob("*.adj")))
                     self.assertFalse(any(path.name.endswith("netQC.html") for path in output.rglob("*")))
+                    self.assertFalse(any(path.name.endswith("netQC.Rmd") for path in output.rglob("*")))
                     self.assertTrue(
                         (
                             output
