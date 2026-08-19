@@ -19,10 +19,11 @@ The results are descriptive network QC, not proof of biological accuracy.
 
 ## Results
 
-The completed, independently audited sweep is summarized in
+The original nine-point, independently audited sweep is summarized in
 [results_2026-08-19/RESULTS.md](results_2026-08-19/RESULTS.md). It nominates
-`p=3e-4` only as a provisional BRCA100 topology operating point and recommends
-a focused refinement between `2e-4` and `3e-4` before any default change.
+`p=3e-4` only as a provisional BRCA100 topology operating point. The appended
+four-point extension addresses the separate concern that its median regulon
+sizes may be too small for robust downstream activity estimation.
 
 ## Grid
 
@@ -37,10 +38,22 @@ a focused refinement between `2e-4` and `3e-4` before any default change.
 | `2e-4` | 0.185973 | directly tested on held-out stream | coarse grid |
 | `3e-4` | 0.176615 | interpolated inside accepted validation range | near PR66 density anchor |
 | `3.528045626e-4` | 0.172803 | interpolated inside accepted validation range | exact PR66-cutoff match |
+| `4e-4` | 0.169824 | interpolated inside accepted validation range | extended density sweep |
+| `5e-4` | 0.164467 | directly tested on held-out stream | extended density sweep |
+| `7.5e-4` | 0.154532 | interpolated inside accepted validation range | extended density sweep |
+| `1e-3` | 0.147322 | directly tested on held-out stream | extended density sweep |
 
 The final probability is calculated from the PR67 GPD model so that its MI
 cutoff equals PR66's legacy affine cutoff at `m=80`.  PR66 remains context, not
 ground truth.
+
+The four appended points examine larger regulons after the original topology
+screen produced median TF and SIG target counts that were considered too low
+for the intended activity-estimation use. No biological or activity-robustness
+criterion is applied here. The extension reports the fraction of all
+zero-filled candidate drivers with at least 10, 20, 30, 50, and 100 targets,
+both overall and after requiring recurrence support of at least 20%, 50%, or
+80%. Recurrence is a stability diagnostic, not an edge probability or FDR.
 
 Here, Gate 2 means validation against a second, independent stream of
 canonical rank permutations generated under the AP-MI independence null.  It
@@ -119,7 +132,7 @@ bash \
   "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_full_downstream.sh"
 
 # Recorded HTML reports cover the selected point, its stricter neighbor, and
-# the PR66-cutoff match. All 18 summaries are revalidated/reused first; optional
+# the PR66-cutoff match. All 26 summaries are revalidated/reused first; optional
 # HTML provenance is written separately from the stable summary record.
 SELECTED_HTML_POINTS="p2e-04,p3e-04,p_pr66_cutoff_match"
 "$RUN" python \
@@ -134,6 +147,14 @@ consensus manifests, and an invocation history.  Completed jobs are accepted on
 resume only after their command fingerprint, headers, structure, and adjacency
 SHA-256 are revalidated.
 
+An existing completed nine-point v1 root is extended only through the explicit
+append-only v1-to-v2 migration. The runner first proves that the complete v1
+design and every existing point manifest match the pinned historical contract,
+archives the exact old design under `sweep_design_history/`, records a
+fingerprinted migration manifest, and only then atomically promotes the
+13-point design. Any changed invariant, reordered point, orphan manifest, or
+pre-existing extension path fails closed.
+
 The NetBID2 runner discovers points only from immutable
 `results/<point>/point_manifest.json` files. Compact artifacts live under each
 arm's `netbid2_qc/`; optional reports live separately under
@@ -144,21 +165,29 @@ provenance to `results/netbid2_qc_manifest.json`. A later HTML run requires that
 exact complete summary aggregate, never rewrites it, and writes optional-report
 provenance to `results/netbid2_qc_html_manifest.json` instead.
 
+Because NetBID arm fingerprints include the global sweep-design hash, the v2
+extension does not silently accept the old records. Each existing summary or
+HTML record is first revalidated against the archived v1 hash, command,
+environment, logs, and current output bytes. Its exact old manifest is archived
+under `netbid2_manifest_history/`; the active record is then rewritten by
+changing only the design hash and fingerprint. A deterministic migration audit
+records every such transition.
+
 ## Compact results package
 
 After the full analysis succeeds, create a reviewable package outside the live
 work root.  The destination and its sibling `.partial` path must not exist.
 
 ```bash
-PACKAGE="$ROOT/benchmarks/brca100_pr67_threshold_sweep/results_2026-08-19"
+PACKAGE="$ROOT/benchmarks/brca100_pr67_threshold_sweep/results_extended_2026-08-19"
 "$RUN" python \
   "$ROOT/benchmarks/brca100_pr67_threshold_sweep/package_results.py" \
   --work-root "$WORK" --output-root "$PACKAGE"
 ```
 
-The packager requires the exact 9-point by 2-driver design, 1,800 completed
+The packager requires the exact 13-point by 2-driver design, 2,600 completed
 seed runs, both completed full-run invocations, 400 anchor comparisons, all
-consensus/support artifacts, all 18 NetBID2 summaries, and a completed analysis
+consensus/support artifacts, all 26 NetBID2 summaries, and a completed analysis
 with exact PR66 cutoff-match evidence.  It copies the compact analysis tables
 and plots, anchor evidence, and immutable design/build/point/arm/aggregate
 manifests.  Optional HTML manifests are included only when their root aggregate
@@ -192,6 +221,13 @@ operating point was found rather than relaxing the floors after inspecting the
 results.  Any nominated value is a provisional topology operating point.  The
 coverage-connectivity knee, adjacent-threshold overlap, and support are
 secondary diagnostics rather than additional pass/fail gates.
+
+The topology screen always chooses the smallest, most stringent passing `p`;
+whether that point was directly tested in Gate 2 or interpolated within the
+accepted range is reported but does not justify skipping it. The extended
+target-size summaries are descriptive. They do not define a density optimum or
+change the provisional topology operating point without a separately declared
+regulon-density or downstream-robustness criterion.
 
 At minimum, report consensus edges, active-driver fraction, zero-filled target
 sizes, incident-node fraction, weak components, largest-component fraction,

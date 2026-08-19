@@ -54,9 +54,11 @@ class SweepPoint:
         return float(self.p_token)
 
 
-# Coarse-first grid.  The final point is the exact p at which the PR67 GPD
-# cutoff equals PR66's legacy m=80 affine cutoff (0.17280321515749669).
-SWEEP_POINTS = (
+# Original coarse-first grid.  Its final point is the exact p at which the
+# PR67 GPD cutoff equals PR66's legacy m=80 affine cutoff
+# (0.17280321515749669).  Keep this tuple immutable: it is the exact v1 prefix
+# accepted by the append-only design migration.
+LEGACY_SWEEP_POINTS = (
     SweepPoint("p1e-07", "1e-7", "1e-7", "original-default"),
     SweepPoint("p1e-06", "1e-6", "1e-6", "extrapolated-grid"),
     SweepPoint("p1e-05", "1e-5", "1e-5", "extrapolated-grid"),
@@ -72,6 +74,13 @@ SWEEP_POINTS = (
         "pr66-cutoff-match",
     ),
 )
+EXTENDED_SWEEP_POINTS = (
+    SweepPoint("p4e-04", "4e-4", "4e-4", "extended-validated-grid"),
+    SweepPoint("p5e-04", "5e-4", "5e-4", "extended-validated-grid"),
+    SweepPoint("p7p5e-04", "7.5e-4", "7.5e-4", "extended-validated-grid"),
+    SweepPoint("p1e-03", "1e-3", "1e-3", "extended-validated-grid"),
+)
+SWEEP_POINTS = LEGACY_SWEEP_POINTS + EXTENDED_SWEEP_POINTS
 
 
 DRIVERS = core.DRIVER_CLASSES
@@ -79,19 +88,38 @@ MODEL_EXPECTED_SHA256 = (
     "e3a8522682a8ea239821aaa10b12db72d00e07bfdcad43599d8e76a06be80944"
 )
 PR66_MATCHED_CUTOFF = 0.17280321515749669
+LEGACY_SWEEP_DESIGN_SCHEMA = "sjaracne-brca100-pr67-p-sweep-v1"
+SWEEP_DESIGN_SCHEMA = "sjaracne-brca100-pr67-p-sweep-v2"
+SWEEP_DESIGN_MIGRATION_SCHEMA = (
+    "sjaracne-brca100-pr67-p-sweep-design-migration-v1"
+)
+SWEEP_DESIGN_HISTORY_DIRECTORY = "sweep_design_history"
 
 
 def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
 
-def atomic_json(path: Path, payload: object) -> None:
+def serialized_json(payload: object) -> bytes:
+    return (
+        json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+
+
+def sha256_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def atomic_bytes(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".partial")
-    with temporary.open("w", encoding="utf-8", newline="\n") as handle:
-        json.dump(payload, handle, indent=2, sort_keys=True, allow_nan=False)
-        handle.write("\n")
+    with temporary.open("wb") as handle:
+        handle.write(payload)
     os.replace(temporary, path)
+
+
+def atomic_json(path: Path, payload: object) -> None:
+    atomic_bytes(path, serialized_json(payload))
 
 
 def load_json(path: Path) -> dict:
@@ -230,10 +258,10 @@ def command_for_job(
     ]
 
 
-def write_point_manifest(
-    *, work_root: Path, design: dict[str, object], build: dict, input_metadata: dict
-) -> None:
-    manifest = {
+def point_manifest_payload(
+    *, design: dict[str, object], build: dict, input_metadata: dict
+) -> dict[str, object]:
+    return {
         "schema": "sjaracne-brca100-pr67-p-sweep-point-v1",
         **design,
         "commit": PR67_COMMIT,
@@ -248,6 +276,14 @@ def write_point_manifest(
         "seeds": list(range(1, 101)),
         "inputs": input_metadata,
     }
+
+
+def write_point_manifest(
+    *, work_root: Path, design: dict[str, object], build: dict, input_metadata: dict
+) -> None:
+    manifest = point_manifest_payload(
+        design=design, build=build, input_metadata=input_metadata
+    )
     path = work_root / "results" / str(design["key"]) / "point_manifest.json"
     if path.is_file():
         existing = load_json(path)
@@ -255,6 +291,235 @@ def write_point_manifest(
             raise RuntimeError(f"Incompatible existing point manifest: {path}")
         return
     atomic_json(path, manifest)
+
+
+def sweep_design_payload(
+    *,
+    schema: str,
+    points: tuple[SweepPoint, ...],
+    model: dict[str, str],
+    build: dict,
+    input_metadata: dict,
+) -> dict[str, object]:
+    return {
+        "schema": schema,
+        "commit": PR67_COMMIT,
+        "binary_sha256": build["binary_sha256"],
+        "config_sha256": build["config_sha256"],
+        "null_model_sha256": build["null_model_sha256"],
+        "all_points": [point_design(point, model) for point in points],
+        "fixed_parameters": {
+            "sampling": "fixed 80% without replacement",
+            "m": 80,
+            "npar": 40,
+            "dpi_epsilon": 0,
+            "consensus_p": 1e-5,
+            "seeds": list(range(1, 101)),
+        },
+        "inputs": input_metadata,
+    }
+
+
+def validate_append_only_design_extension(
+    legacy_design: dict[str, object], extended_design: dict[str, object]
+) -> None:
+    if legacy_design.get("schema") != LEGACY_SWEEP_DESIGN_SCHEMA:
+        raise RuntimeError("Legacy sweep design does not have the exact v1 schema")
+    if extended_design.get("schema") != SWEEP_DESIGN_SCHEMA:
+        raise RuntimeError("Extended sweep design does not have the exact v2 schema")
+
+    legacy_invariants = {
+        key: value
+        for key, value in legacy_design.items()
+        if key not in {"schema", "all_points"}
+    }
+    extended_invariants = {
+        key: value
+        for key, value in extended_design.items()
+        if key not in {"schema", "all_points"}
+    }
+    if legacy_invariants != extended_invariants:
+        raise RuntimeError("Sweep extension changes a fixed v1 design invariant")
+
+    legacy_points = legacy_design.get("all_points")
+    extended_points = extended_design.get("all_points")
+    if not isinstance(legacy_points, list) or not isinstance(extended_points, list):
+        raise RuntimeError("Sweep design all_points must be a list")
+    if extended_points[: len(legacy_points)] != legacy_points:
+        raise RuntimeError("Sweep extension changes or reorders a legacy point")
+    appended = extended_points[len(legacy_points) :]
+    expected_appended_keys = [point.key for point in EXTENDED_SWEEP_POINTS]
+    if [point.get("key") for point in appended] != expected_appended_keys:
+        raise RuntimeError("Sweep extension is not the exact four-point append")
+    if len(legacy_points) != len(LEGACY_SWEEP_POINTS):
+        raise RuntimeError("Legacy sweep design is not the exact nine-point design")
+
+
+def validate_legacy_point_manifests(
+    *,
+    work_root: Path,
+    legacy_design: dict[str, object],
+    build: dict,
+    input_metadata: dict,
+) -> None:
+    expected = {
+        str(point["key"]): point_manifest_payload(
+            design=point, build=build, input_metadata=input_metadata
+        )
+        for point in legacy_design["all_points"]
+    }
+    results_root = work_root / "results"
+    if not results_root.is_dir():
+        return
+
+    extension_keys = {point.key for point in EXTENDED_SWEEP_POINTS}
+    for extension_key in sorted(extension_keys):
+        extension_root = results_root / extension_key
+        if extension_root.exists():
+            raise RuntimeError(
+                "A v1 sweep root already contains an extended-point path: "
+                f"{extension_root}"
+            )
+
+    for manifest_path in sorted(results_root.glob("*/point_manifest.json")):
+        point_key = manifest_path.parent.name
+        if point_key not in expected:
+            raise RuntimeError(
+                f"Unexpected point manifest under the v1 sweep: {manifest_path}"
+            )
+        if load_json(manifest_path) != expected[point_key]:
+            raise RuntimeError(
+                f"Incompatible legacy point manifest: {manifest_path}"
+            )
+    for point_key in sorted(expected):
+        point_root = results_root / point_key
+        if point_root.is_dir() and not (point_root / "point_manifest.json").is_file():
+            raise RuntimeError(
+                f"Legacy point directory lacks its manifest: {point_root}"
+            )
+
+
+def ensure_exact_bytes(path: Path, payload: bytes, description: str) -> None:
+    if path.exists():
+        if not path.is_file() or path.read_bytes() != payload:
+            raise RuntimeError(f"Incompatible existing {description}: {path}")
+        return
+    atomic_bytes(path, payload)
+
+
+def migration_manifest_payload(
+    *,
+    work_root: Path,
+    archive_path: Path,
+    migration_path: Path,
+    legacy_design: dict[str, object],
+    extended_design: dict[str, object],
+    legacy_sha256: str,
+    extended_sha256: str,
+) -> dict[str, object]:
+    legacy_points = legacy_design["all_points"]
+    extended_points = extended_design["all_points"]
+    payload: dict[str, object] = {
+        "schema": SWEEP_DESIGN_MIGRATION_SCHEMA,
+        "operation": "append-only-point-extension",
+        "from": {
+            "schema": LEGACY_SWEEP_DESIGN_SCHEMA,
+            "sha256": legacy_sha256,
+            "archived_path": archive_path.relative_to(work_root).as_posix(),
+            "point_keys": [point["key"] for point in legacy_points],
+        },
+        "to": {
+            "schema": SWEEP_DESIGN_SCHEMA,
+            "sha256": extended_sha256,
+            "active_path": "sweep_design.json",
+            "point_keys": [point["key"] for point in extended_points],
+        },
+        "appended_points": extended_points[len(legacy_points) :],
+        "manifest_path": migration_path.relative_to(work_root).as_posix(),
+    }
+    payload["fingerprint"] = json_fingerprint(payload)
+    return payload
+
+
+def ensure_sweep_design(
+    *,
+    work_root: Path,
+    legacy_design: dict[str, object],
+    extended_design: dict[str, object],
+    build: dict,
+    input_metadata: dict,
+) -> str:
+    """Create v2 or atomically migrate an exact v1 design before point writes."""
+    validate_append_only_design_extension(legacy_design, extended_design)
+    design_path = work_root / "sweep_design.json"
+    partial_path = design_path.with_name(design_path.name + ".partial")
+    if partial_path.exists():
+        raise RuntimeError(f"Unresolved partial sweep design: {partial_path}")
+
+    if not design_path.exists():
+        stray_manifests = sorted((work_root / "results").glob("*/point_manifest.json"))
+        if stray_manifests:
+            raise RuntimeError(
+                "Point manifests exist without a sweep design; refusing to create v2: "
+                f"{stray_manifests[0]}"
+            )
+        atomic_json(design_path, extended_design)
+        return "created-v2"
+    if not design_path.is_file():
+        raise RuntimeError(f"Sweep design path is not a regular file: {design_path}")
+
+    existing_bytes = design_path.read_bytes()
+    existing = load_json(design_path)
+    if existing == extended_design:
+        if existing_bytes != serialized_json(extended_design):
+            raise RuntimeError(
+                f"Existing v2 sweep design is not canonical: {design_path}"
+            )
+        return "existing-v2"
+    if existing != legacy_design:
+        raise RuntimeError(f"Incompatible existing sweep design: {design_path}")
+    if existing_bytes != serialized_json(legacy_design):
+        raise RuntimeError(
+            f"Existing v1 sweep design is not canonical: {design_path}"
+        )
+
+    validate_legacy_point_manifests(
+        work_root=work_root,
+        legacy_design=legacy_design,
+        build=build,
+        input_metadata=input_metadata,
+    )
+    legacy_sha256 = sha256_bytes(existing_bytes)
+    extended_bytes = serialized_json(extended_design)
+    extended_sha256 = sha256_bytes(extended_bytes)
+    history_root = work_root / SWEEP_DESIGN_HISTORY_DIRECTORY
+    archive_path = history_root / f"{legacy_sha256}.sweep_design.json"
+    migration_path = (
+        history_root / f"{legacy_sha256}_to_{extended_sha256}.migration.json"
+    )
+    manifest = migration_manifest_payload(
+        work_root=work_root,
+        archive_path=archive_path,
+        migration_path=migration_path,
+        legacy_design=legacy_design,
+        extended_design=extended_design,
+        legacy_sha256=legacy_sha256,
+        extended_sha256=extended_sha256,
+    )
+
+    # Record immutable recovery/provenance evidence before promoting v2.  A
+    # crash at either atomic write leaves v1 active and creates no new point
+    # manifest; a retry validates/reuses these exact history records.
+    ensure_exact_bytes(archive_path, existing_bytes, "archived v1 sweep design")
+    ensure_exact_bytes(
+        migration_path,
+        serialized_json(manifest),
+        "sweep-design migration manifest",
+    )
+    atomic_bytes(design_path, extended_bytes)
+    if design_path.read_bytes() != extended_bytes:
+        raise RuntimeError(f"Atomic sweep-design migration did not persist: {design_path}")
+    return "migrated-v1-to-v2"
 
 
 def run_seed_job(
@@ -570,6 +835,29 @@ def main() -> int:
     if model.get("m") != "80" or model.get("npar_limit") != "40":
         raise RuntimeError("The sweep requires the exact m=80, Npar=40 model")
 
+    legacy_run_design = sweep_design_payload(
+        schema=LEGACY_SWEEP_DESIGN_SCHEMA,
+        points=LEGACY_SWEEP_POINTS,
+        model=model,
+        build=build,
+        input_metadata=input_metadata,
+    )
+    run_design = sweep_design_payload(
+        schema=SWEEP_DESIGN_SCHEMA,
+        points=SWEEP_POINTS,
+        model=model,
+        build=build,
+        input_metadata=input_metadata,
+    )
+    design_status = ensure_sweep_design(
+        work_root=args.work_root,
+        legacy_design=legacy_run_design,
+        extended_design=run_design,
+        build=build,
+        input_metadata=input_metadata,
+    )
+    core.console(f"[DESIGN] {design_status}: {args.work_root / 'sweep_design.json'}")
+
     designs = [point_design(point, model) for point in points]
     matched = next(
         item for item in designs if item["key"] == "p_pr66_cutoff_match"
@@ -585,29 +873,6 @@ def main() -> int:
             build=build,
             input_metadata=input_metadata,
         )
-
-    run_design = {
-        "schema": "sjaracne-brca100-pr67-p-sweep-v1",
-        "commit": PR67_COMMIT,
-        "binary_sha256": build["binary_sha256"],
-        "config_sha256": build["config_sha256"],
-        "null_model_sha256": build["null_model_sha256"],
-        "all_points": [point_design(point, model) for point in SWEEP_POINTS],
-        "fixed_parameters": {
-            "sampling": "fixed 80% without replacement",
-            "m": 80,
-            "npar": 40,
-            "dpi_epsilon": 0,
-            "consensus_p": 1e-5,
-            "seeds": list(range(1, 101)),
-        },
-        "inputs": input_metadata,
-    }
-    design_path = args.work_root / "sweep_design.json"
-    if design_path.is_file() and load_json(design_path) != run_design:
-        raise RuntimeError(f"Incompatible existing sweep design: {design_path}")
-    if not design_path.is_file():
-        atomic_json(design_path, run_design)
 
     invocation_path = args.work_root / "invocations.json"
     invocations = load_json(invocation_path) if invocation_path.is_file() else {

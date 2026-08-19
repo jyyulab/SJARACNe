@@ -124,7 +124,7 @@ def make_fixture(root: Path) -> tuple[dict[str, str], str]:
             }
         )
     design = {
-        "schema": "sjaracne-brca100-pr67-p-sweep-v1",
+        "schema": "sjaracne-brca100-pr67-p-sweep-v2",
         "commit": pkg.PR67_COMMIT,
         "binary_sha256": build["binary_sha256"],
         "config_sha256": build["config_sha256"],
@@ -142,6 +142,41 @@ def make_fixture(root: Path) -> tuple[dict[str, str], str]:
     }
     design_path = root / "sweep_design.json"
     write_json(design_path, design)
+    legacy_design = {
+        **design,
+        "schema": "sjaracne-brca100-pr67-p-sweep-v1",
+        "all_points": design_points[: len(pkg.LEGACY_POINT_KEYS)],
+    }
+    history_root = root / "sweep_design_history"
+    legacy_placeholder = history_root / "legacy.sweep_design.json"
+    write_json(legacy_placeholder, legacy_design)
+    legacy_hash = pkg.sha256_file(legacy_placeholder)
+    archive_path = history_root / f"{legacy_hash}.sweep_design.json"
+    legacy_placeholder.replace(archive_path)
+    design_hash = pkg.sha256_file(design_path)
+    migration_path = (
+        history_root / f"{legacy_hash}_to_{design_hash}.migration.json"
+    )
+    migration = {
+        "schema": "sjaracne-brca100-pr67-p-sweep-design-migration-v1",
+        "operation": "append-only-point-extension",
+        "from": {
+            "schema": "sjaracne-brca100-pr67-p-sweep-v1",
+            "sha256": legacy_hash,
+            "archived_path": archive_path.relative_to(root).as_posix(),
+            "point_keys": list(pkg.LEGACY_POINT_KEYS),
+        },
+        "to": {
+            "schema": "sjaracne-brca100-pr67-p-sweep-v2",
+            "sha256": design_hash,
+            "active_path": "sweep_design.json",
+            "point_keys": list(pkg.POINT_KEYS),
+        },
+        "appended_points": design_points[len(pkg.LEGACY_POINT_KEYS) :],
+        "manifest_path": migration_path.relative_to(root).as_posix(),
+    }
+    migration["fingerprint"] = pkg.json_fingerprint(migration)
+    write_json(migration_path, migration)
 
     point_by_key: dict[str, dict[str, object]] = {}
     point_hashes: dict[str, str] = {}
@@ -622,6 +657,18 @@ class PackageResultsTest(unittest.TestCase):
                             / "netbid2_qc_html_manifest.json"
                         ).is_file()
                     )
+                    self.assertEqual(
+                        len(
+                            list(
+                                (
+                                    output
+                                    / "provenance"
+                                    / "sweep_design_history"
+                                ).glob("*.migration.json")
+                            )
+                        ),
+                        1,
+                    )
                     checksum_lines = (output / "SHA256SUMS").read_text(encoding="utf-8").splitlines()
                     nonself = [
                         path for path in output.rglob("*")
@@ -633,6 +680,19 @@ class PackageResultsTest(unittest.TestCase):
                         omitted["category_counts"]["seed-adjacency"],
                         len(pkg.POINT_KEYS) * len(pkg.DRIVERS) * len(pkg.SEEDS),
                     )
+
+                    archive = next(
+                        (work / "sweep_design_history").glob("*.sweep_design.json")
+                    )
+                    archive_bytes = archive.read_bytes()
+                    archive.write_bytes(archive_bytes + b" ")
+                    rejected_history = base / "rejected-history"
+                    with self.assertRaisesRegex(
+                        ValueError, "append-only sweep-design migration"
+                    ):
+                        pkg.package_results(work, rejected_history)
+                    self.assertFalse(rejected_history.exists())
+                    archive.write_bytes(archive_bytes)
 
                     (work / "results" / "analysis" / "network_summary.tsv").write_bytes(b"tampered\n")
                     rejected = base / "rejected"

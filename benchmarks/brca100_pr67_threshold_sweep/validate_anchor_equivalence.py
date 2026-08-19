@@ -116,7 +116,7 @@ def main() -> int:
     sweep_design_path = args.sweep_work_root / "sweep_design.json"
     sweep_design = load_json(sweep_design_path)
     if (
-        sweep_design.get("schema") != "sjaracne-brca100-pr67-p-sweep-v1"
+        sweep_design.get("schema") != "sjaracne-brca100-pr67-p-sweep-v2"
         or sweep_design.get("commit") != PR67_COMMIT
         or sweep_design.get("null_model_sha256") != MODEL_SHA256
         or sweep_design.get("fixed_parameters", {}).get("m") != 80
