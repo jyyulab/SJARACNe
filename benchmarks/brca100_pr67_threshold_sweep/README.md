@@ -17,6 +17,13 @@ whether a less stringent seed-level operating point restores usable driver
 coverage and graph connectivity while retaining reasonable consensus support.
 The results are descriptive network QC, not proof of biological accuracy.
 
+## Results
+
+The completed, independently audited sweep is summarized in
+[results_2026-08-19/RESULTS.md](results_2026-08-19/RESULTS.md). It nominates
+`p=3e-4` only as a provisional BRCA100 topology operating point and recommends
+a focused refinement between `2e-4` and `3e-4` before any default change.
+
 ## Grid
 
 | Seed-level p | AP-MI cutoff | Calibration status | Purpose |
@@ -111,10 +118,10 @@ bash "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_full_inference.sh"
 bash \
   "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_full_downstream.sh"
 
-# After reading the analysis, replace this example with the selected point and
-# its adjacent grid neighbors. All 18 summaries are revalidated/reused first;
-# optional HTML provenance is written separately from the stable summary record.
-SELECTED_HTML_POINTS="p2e-05,p5e-05,p1e-04"
+# Recorded HTML reports cover the selected point, its stricter neighbor, and
+# the PR66-cutoff match. All 18 summaries are revalidated/reused first; optional
+# HTML provenance is written separately from the stable summary record.
+SELECTED_HTML_POINTS="p2e-04,p3e-04,p_pr66_cutoff_match"
 "$RUN" python \
   "$ROOT/benchmarks/brca100_pr67_threshold_sweep/run_netbid_qc.py" \
   --points all --drivers all --html-points "$SELECTED_HTML_POINTS" \
