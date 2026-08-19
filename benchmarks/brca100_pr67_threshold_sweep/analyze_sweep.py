@@ -88,6 +88,13 @@ SVG_METADATA = {
 }
 
 
+def compact_plot_p_label(p_value: float) -> str:
+    """Format plot-only p labels compactly without changing stored values."""
+    exponent = math.floor(math.log10(p_value))
+    coefficient = p_value / (10.0 ** exponent)
+    return f"{coefficient:.3g}e{exponent}"
+
+
 def calibration_point_class(p_value: float) -> str:
     """Return the reporting class supported by the held-out null validation."""
     exact_grid = any(
@@ -1422,7 +1429,7 @@ def plot_core_metrics(
         )
     metrics = tuple(metric_list)
     x_values = np.asarray([point["log10_p"] for point in points])
-    x_labels = [point["p_label"] for point in points]
+    x_labels = [compact_plot_p_label(point["p_value"]) for point in points]
     figure, axes = plt.subplots(
         len(DRIVERS),
         len(metrics),
@@ -1478,7 +1485,21 @@ def plot_core_metrics(
             axis.set_title(label)
             axis.grid(alpha=0.22)
             if row_index == len(DRIVERS) - 1:
-                axis.set_xticks(x_values, x_labels, rotation=35, ha="right")
+                axis.set_xticks(x_values)
+                axis.set_xticklabels(
+                    x_labels,
+                    rotation=0,
+                    ha="center",
+                    fontsize=7,
+                )
+                # After 1e-5 the log-spaced positions are too close for one
+                # label row. Three deterministic tiers retain every point,
+                # including the near-adjacent 3e-4 and cutoff-match points.
+                for label_index, tick_label in enumerate(
+                    axis.get_xticklabels()[2:], start=2
+                ):
+                    tier = (label_index - 2) % 3
+                    tick_label.set_y(-0.055 * tier)
                 axis.set_xlabel("Per-subsample p (x position = log10(p))")
             else:
                 axis.set_xticks(x_values, [])
@@ -1912,17 +1933,32 @@ def plot_coverage_vs_null_burden(summary: pd.DataFrame, plots_root: Path) -> Non
                 markersize=4.5,
                 label=label,
             )
-        for x_value, y_value, label in zip(
+        annotations = zip(
             x_values,
             subset["active_driver_fraction"],
-            subset["p_label"],
-        ):
+            subset["p_value"],
+        )
+        for point_index, (x_value, y_value, p_value) in enumerate(annotations):
+            if point_index >= len(subset) - 3:
+                # The three loosest thresholds converge near y=1 and have
+                # closely spaced log-x positions. Stack their labels below the
+                # markers in deterministic tiers.
+                tier = point_index - (len(subset) - 3)
+                offset = (-3, -(8 + 11 * tier))
+                horizontal_alignment = "right"
+                vertical_alignment = "top"
+            else:
+                offset = (3, 3)
+                horizontal_alignment = "left"
+                vertical_alignment = "bottom"
             axis.annotate(
-                str(label),
+                compact_plot_p_label(float(p_value)),
                 (x_value, y_value),
-                xytext=(3, 3),
+                xytext=offset,
                 textcoords="offset points",
                 fontsize=7,
+                ha=horizontal_alignment,
+                va=vertical_alignment,
             )
         axis.set_xscale("log")
         axis.set_ylim(-0.025, 1.025)
