@@ -1352,7 +1352,11 @@ def validate_netbid(work_root: Path, analysis: dict[str, Any], evidence: Package
         )
         prefix = NETBID_DRIVERS[driver][1]
         expected_inventory_names = sorted(
-            [*NETBID_SHARED_OUTPUTS, f"{prefix}netQC.html"]
+            [
+                *NETBID_SHARED_OUTPUTS,
+                f"{prefix}netQC.Rmd",
+                f"{prefix}netQC.html",
+            ]
         )
         if inventory_names != expected_inventory_names:
             raise ValueError(f"Unexpected HTML output inventory: {key}/{driver}")
@@ -1420,6 +1424,7 @@ def assert_no_forbidden_payloads(root: Path) -> None:
             path.suffix == ".adj"
             or path.name in forbidden_names
             or path.name.endswith("netQC.html")
+            or path.name.endswith("netQC.Rmd")
         ):
             violations.append(path.relative_to(root).as_posix())
     if violations:
