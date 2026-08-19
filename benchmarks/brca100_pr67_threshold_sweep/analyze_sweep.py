@@ -1474,7 +1474,7 @@ def plot_core_metrics(
     context_summary: pd.DataFrame | None,
 ) -> None:
     metric_list = [
-        ("consensus_edges", "Consensus edges", "symlog"),
+        ("consensus_edges", "Consensus edges", "log"),
         ("active_driver_fraction", "Active candidate drivers", "fraction"),
         (
             "incident_node_fraction_expression",
@@ -1510,7 +1510,7 @@ def plot_core_metrics(
     figure, axes = plt.subplots(
         len(DRIVERS),
         len(metrics),
-        figsize=(3.25 * len(metrics), 7.2),
+        figsize=(3.85 * len(metrics), 8.4),
         constrained_layout=True,
         squeeze=False,
     )
@@ -1557,26 +1557,32 @@ def plot_core_metrics(
             axis.axvline(anchor["log10_p"], color="#777777", linestyle=":", linewidth=1.0)
             if scale == "symlog":
                 axis.set_yscale("symlog", linthresh=1)
+                axis.set_ylim(bottom=0)
+            elif scale == "log":
+                axis.set_yscale("log")
             elif scale == "fraction":
                 axis.set_ylim(-0.025, 1.025)
-            axis.set_title(label)
+            title = label.replace(" / ", "\n/ ")
+            if title == "NetBID2 scale-free adjusted R2":
+                title = "NetBID2 scale-free\nadjusted R2"
+            axis.set_title(title, fontsize=10)
             axis.grid(alpha=0.22)
             if row_index == len(DRIVERS) - 1:
                 axis.set_xticks(x_values)
                 axis.set_xticklabels(
                     x_labels,
-                    rotation=0,
-                    ha="center",
-                    fontsize=7,
+                    rotation=30,
+                    ha="right",
+                    fontsize=6.5,
                 )
                 # After 1e-5 the log-spaced positions are too close for one
-                # label row. Three deterministic tiers retain every point,
+                # label row. Four deterministic tiers retain every point,
                 # including the near-adjacent 3e-4 and cutoff-match points.
                 for label_index, tick_label in enumerate(
                     axis.get_xticklabels()[2:], start=2
                 ):
-                    tier = (label_index - 2) % 3
-                    tick_label.set_y(-0.055 * tier)
+                    tier = (label_index - 2) % 4
+                    tick_label.set_y(-0.06 * tier)
                 axis.set_xlabel("Per-subsample p (x position = log10(p))")
             else:
                 axis.set_xticks(x_values, [])
@@ -2013,13 +2019,14 @@ def plot_coverage_vs_null_burden(summary: pd.DataFrame, plots_root: Path) -> Non
             subset["active_driver_fraction"],
             subset["p_value"],
         )
+        loose_label_start = max(0, len(subset) - 7)
         for point_index, (x_value, y_value, p_value) in enumerate(annotations):
-            if point_index >= len(subset) - 3:
-                # The three loosest thresholds converge near y=1 and have
+            if point_index >= loose_label_start:
+                # The seven loosest thresholds converge near y=1 and have
                 # closely spaced log-x positions. Stack their labels below the
                 # markers in deterministic tiers.
-                tier = point_index - (len(subset) - 3)
-                offset = (-3, -(8 + 11 * tier))
+                tier = point_index - loose_label_start
+                offset = (-3, -(8 + 10 * tier))
                 horizontal_alignment = "right"
                 vertical_alignment = "top"
             else:
