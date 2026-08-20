@@ -19,6 +19,13 @@ The results are descriptive network QC, not proof of biological accuracy.
 
 ## Results
 
+The [combined 13-point report](COMBINED_RESULTS.md) states the sweep goal,
+matched design, provenance, full density-topology trajectory, recurrence
+tradeoff, limitations, and defensible conclusion in one place. Two
+single-file representative NetBID2 reports are packaged under
+[representative_netbid2_qc/](representative_netbid2_qc/): `p=1e-3` TF and
+`p=5e-4` SIG.
+
 The original nine-point, independently audited sweep is summarized in
 [results_2026-08-19/RESULTS.md](results_2026-08-19/RESULTS.md). It nominates
 `p=3e-4` only as a provisional BRCA100 topology operating point. The appended
