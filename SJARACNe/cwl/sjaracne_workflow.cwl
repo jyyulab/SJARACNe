@@ -21,7 +21,7 @@ inputs:
   p_value_bootstrap:
     type: float
     default: 1e-7
-    label: P-value threshold in building bootstrap networks
+    label: P-value threshold in building individual resampled networks
   depth:
     type: int
     default: 40
@@ -32,7 +32,11 @@ inputs:
   bootstrap_num:
     type: int
     default: 100
-    label: Number of bootstrap networks to generate
+    label: Number of resampled networks to generate (legacy input name)
+  subsample_spec:
+    type: string
+    default: "80%"
+    label: Fixed observation count or percentage sampled without replacement in every network
   final_out_dir_name:
     type: string
     label: final output directory name
@@ -51,14 +55,14 @@ steps:
       probe_file: probe_file
     out: [validation_report]
 
-  # Step 1: create seeds from bootstrap number
+  # Step 1: create seeds from the resampled-network count (legacy input name)
   create_seeds:
     run: int_to_int_array.cwl
     in:
       number: bootstrap_num
     out: [int_array]
 
-  # Step 2: create adjacent matrix file names from bootstrap number
+  # Step 2: create adjacency file names from the resampled-network count
   create_adjmat_names:
     run: int_to_str_array.cwl
     in:
@@ -79,7 +83,7 @@ steps:
       input_file: probe_file
     out: [out_file]
 
-  # Step 5: bootstrapping using sjaracne with different seeds
+  # Step 5: fixed-size subsampling without replacement using different seeds
   bootstrap:
     run: sjaracne.cwl
     in:
@@ -90,6 +94,7 @@ steps:
       p_value: p_value_bootstrap
       aracne_config_dir: aracne_config_dir
       npar_limit: depth
+      subsample_spec: subsample_spec
       output_file_name: create_adjmat_names/str_array
       seed: create_seeds/int_array
     scatter: [output_file_name, seed]
