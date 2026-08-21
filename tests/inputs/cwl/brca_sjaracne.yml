@@ -10,7 +10,7 @@ probe_file_subnetwork:
 p_value: 1e-07
 tolerance: 0
 algorithm: adaptive_partitioning
-subsample_spec: "80%"
+sample_number: 1
 aracne_config_dir:
   class: Directory
   path: ../../../SJARACNe/config

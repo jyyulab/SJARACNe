@@ -11,5 +11,4 @@ aracne_config_dir:
   class: Directory
   path: /research/rgs01/home/clusterHome/lding/.conda/envs/py361_test/lib/python3.6/site-packages/SJARACNe/config
 bootstrap_num: 5
-subsample_spec: "80%"
 final_out_dir_name: .

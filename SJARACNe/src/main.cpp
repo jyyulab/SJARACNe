@@ -15,7 +15,7 @@
 
 //------------------------------------------------------------------------------------
 
-const int NUM_OPTIONS = 21;
+const int NUM_OPTIONS = 20;
 
 const char *option[NUM_OPTIONS] =
 {
@@ -41,13 +41,10 @@ const char *option[NUM_OPTIONS] =
 "-n <level>         Array measurement noise level, default: 0",
 "-o <file>          Output file name (optional) [*]",
 "-p <p-value>       P-value for MI threshold (e.g., 1e-7), default: 1 [**]",
-"-r <sample_number> Legacy full-size bootstrap with replacement; retained only\n"
-"                   for reproducibility, default: 0 (disabled)",
+"-r <sample_number> Bootstrap sample number, default: 0",
 "-s <file>          File containing a list of probes for which a subnetwork will\n"
 "                   be constructed, default: NONE",
 "-t <threshold>     MI threshold, default: 0",
-"-u <count|percent> Fixed-size subsampling without replacement, e.g. 80 or 80%;\n"
-"                   default: disabled in the native command",
 "-v <verbose>       on|off, default: off"
 };
 
@@ -132,11 +129,6 @@ Parameter parseParameter(int argc, char *argv[])
                    throw std::string("Option '-s' requires a subnetwork file.");
                 break;
       case 't': p.threshold  = std::atof(ARGF()); break; // mi threshold
-      case 'u': p.subsampleSpec = ARGF();                // unique subsample
-                if (p.subsampleSpec == "")
-                   throw std::string("Option '-u' requires an exact count or "
-                                     "percentage such as 80%.");
-                break;
       case 'v': p.verbose    = ARGF(); break;            // verbose
       default : throw std::string("unknown parameter ") + ARGC();
    }
@@ -193,7 +185,7 @@ void runStandard(int argc, char *argv[])
                 << " markers disabled due to lack of dynamic range."
                 << std::endl << std::endl;
 
-   std::vector<int> lower, upper, selected, *arrays = NULL;
+   std::vector<int> lower, upper, *arrays = NULL;
 
    int controlId = -1;
    int nsample   = data.uarrays.size();
@@ -207,32 +199,6 @@ void runStandard(int argc, char *argv[])
       data.getHighLowPercent(p.percent, controlId, lower, upper);
       arrays = (p.condition == "+" ? &upper : &lower);
       nsample = arrays->size();
-   }
-
-   if (p.subsampleSpec != "")
-   {
-      p.samplingPopulation = nsample;
-      p.samplingSize = resolveSubsampleSize(p.subsampleSpec, nsample);
-      p.samplingMethod = "fixed-size without replacement";
-
-      data.sampleWithoutReplacement(selected, p.samplingSize,
-                                    static_cast<unsigned int>(p.seed), arrays);
-      arrays = &selected;
-      nsample = selected.size();
-
-      std::cout << "[SAMPLING] Fixed-size sampling without replacement: selected "
-                << nsample << " of " << p.samplingPopulation
-                << " eligible observations (request: " << p.subsampleSpec
-                << ")." << std::endl;
-
-      if (equalIgnoreCase(p.verbose, "on"))
-      {
-         std::cout << "[SAMPLING] Selected original observation indices (0-based):";
-         for (std::vector<int>::const_iterator id = selected.begin();
-              id != selected.end(); ++id)
-            std::cout << " " << *id;
-         std::cout << std::endl;
-      }
    }
 
    if (nsample < 2)
@@ -371,15 +337,8 @@ void runStandard(int argc, char *argv[])
 
       if (p.sample > 0)
       {
-         p.samplingPopulation = nsample;
-         p.samplingSize = nsample;
-         p.samplingMethod = "legacy bootstrap with replacement";
-         std::cout << "[SAMPLING] WARNING: '-r' uses the deprecated legacy "
-                      "full-size bootstrap with replacement. Use '-u' for "
-                      "fixed-size sampling without replacement."
-                   << std::endl;
          data.bootStrap(bs, arrays);
-         arrays = &bs;
+     arrays = &bs;
       }
 
       data.addNoise();

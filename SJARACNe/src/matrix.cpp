@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cerrno>
 #include <cctype>
-#include <cstdint>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -18,8 +17,6 @@
 #include <iterator>
 #include <limits>
 #include <new>
-#include <numeric>
-#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <iostream>
@@ -632,20 +629,6 @@ void Matrix::write(const Microarray_Set& data, const std::vector<int>& ids,
    out << ">  DPI tolerance   " << p.eps        << std::endl;
    //out << ">  Correction      " << p.correction << std::endl;
    out << ">  Subnetwork file " << p.subnetfile << std::endl;
-
-   if (p.samplingMethod != "")
-   {
-      out << ">  Sampling method " << p.samplingMethod << std::endl;
-      if (p.subsampleSpec != "")
-         out << ">  Sampling request " << p.subsampleSpec << std::endl;
-      else
-         out << ">  Sampling request legacy -r " << p.sample << std::endl;
-      out << ">  Eligible observations " << p.samplingPopulation << std::endl;
-      out << (p.subsampleSpec != "" ? ">  Sampled observations "
-                                     : ">  Resample draws ")
-          << p.samplingSize << std::endl;
-   }
-
    //out << ">  Hub probe       " << p.hub        << std::endl;
    //out << ">  Control probe   " << p.controlId  << std::endl;
    //out << ">  Condition       " << p.condition  << std::endl;
@@ -1523,63 +1506,6 @@ void Microarray_Set::bootStrap(std::vector<int>& boot, const std::vector<int> *a
       int r = std::rand() % numIds;
       boot.push_back(arrays ? arrays->at(r) : r);
    }
-}
-
-//------------------------------------------------------------------------------------
-
-static std::uint32_t randomBelow(std::mt19937& generator, std::uint32_t bound)
-{
-   // Rejection sampling avoids the modulo bias of rand() % bound while retaining
-   // a fully specified mt19937 bit stream across supported C++ runtimes.
-   const std::uint32_t threshold = static_cast<std::uint32_t>(-bound) % bound;
-
-   while (true)
-   {
-      const std::uint32_t value = static_cast<std::uint32_t>(generator());
-      if (value >= threshold)
-         return value % bound;
-   }
-}
-
-//------------------------------------------------------------------------------------
-
-void Microarray_Set::sampleWithoutReplacement(std::vector<int>& sample,
-                                              int sampleSize,
-                                              unsigned int seed,
-                                              const std::vector<int> *arrays) const
-{
-   const int populationSize = (arrays ? arrays->size() : uarrays.size());
-
-   if (sampleSize < 0 || sampleSize > populationSize)
-      throw std::string("Without-replacement sample size is outside the eligible "
-                        "observation population.");
-
-   std::vector<int> positions(populationSize);
-   std::iota(positions.begin(), positions.end(), 0);
-
-   std::mt19937 generator(seed);
-
-   // A partial Fisher-Yates shuffle chooses a uniform fixed-size subset in O(N)
-   // memory and O(m) random draws.  Sorting the chosen positions restores their
-   // order in the eligible population; it does not change the selected subset.
-   for (int position = 0; position < sampleSize; position++)
-   {
-      const std::uint32_t remaining =
-         static_cast<std::uint32_t>(populationSize - position);
-      const int selected =
-         position + static_cast<int>(randomBelow(generator, remaining));
-      std::swap(positions[position], positions[selected]);
-   }
-
-   positions.resize(sampleSize);
-   std::sort(positions.begin(), positions.end());
-
-   sample.clear();
-   sample.reserve(sampleSize);
-
-   for (std::vector<int>::const_iterator position = positions.begin();
-        position != positions.end(); ++position)
-      sample.push_back(arrays ? arrays->at(*position) : *position);
 }
 
 //------------------------------------------------------------------------------------
