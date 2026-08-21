@@ -3,11 +3,7 @@
 import unittest
 import tempfile
 import subprocess
-import sys
 from pathlib import Path
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class TestSJARACNe(unittest.TestCase):
@@ -17,14 +13,12 @@ class TestSJARACNe(unittest.TestCase):
             output_dir = workdir / 'output'
             temp_dir = workdir / 'tmp'
             subprocess.check_call([
-                sys.executable,
-                '-m',
-                'SJARACNe.sjaracne',
+                'sjaracne',
                 'local',
                 '-e',
-                str(PROJECT_ROOT / 'tests' / 'inputs' / 'Tcell1170.exp'),
+                './tests/inputs/Tcell1170.exp',
                 '-g',
-                str(PROJECT_ROOT / 'tests' / 'inputs' / 'TcellTF.txt'),
+                './tests/inputs/TcellTF.txt',
                 '-n',
                 '5',
                 '-pc',
@@ -33,9 +27,9 @@ class TestSJARACNe(unittest.TestCase):
                 str(output_dir),
                 '-tmp',
                 str(temp_dir),
-            ], cwd=str(PROJECT_ROOT))
+            ])
 
-            expected = PROJECT_ROOT / 'tests' / 'answerkey' / 'acceptance' / 'cnn_5.txt'
+            expected = Path('./tests/answerkey/acceptance/cnn_5.txt')
             actual = output_dir / 'consensus_network_ncol_.txt'
             self.assertEqual(
                 expected.read_text(encoding='utf-8'),

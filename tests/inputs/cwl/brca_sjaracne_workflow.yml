@@ -11,5 +11,4 @@ aracne_config_dir:
   class: Directory
   path: ../../../SJARACNe/config
 bootstrap_num: 2
-subsample_spec: "80%"
 final_out_dir_name: SJARACNE_out.final
