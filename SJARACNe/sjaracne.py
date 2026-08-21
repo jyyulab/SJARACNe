@@ -3,10 +3,25 @@
 import os
 import sys
 import argparse
+import json
 import subprocess
 import shlex
 import logging
 import pathlib
+
+
+def sampling_fraction(value):
+    parsed = float(value)
+    if not 0.0 < parsed <= 1.0:
+        raise argparse.ArgumentTypeError('subsample fraction must be within (0, 1]')
+    return parsed
+
+
+def sampling_size(value):
+    parsed = int(value)
+    if parsed < 2:
+        raise argparse.ArgumentTypeError('subsample size must be at least 2')
+    return parsed
 
 
 def main():
@@ -24,12 +39,25 @@ def main():
     parent_parser.add_argument('-pc', '--p-value-consensus', metavar='FLOAT', default=1e-5,
                                help='P-value threshold to select edges in building consensus network.')
     parent_parser.add_argument('-pb', '--p-value-bootstrap', metavar='FLOAT', default=1e-7,
-                               help='P-value threshold to filter mutual information in building bootstrap networks.')
+                               help='P-value threshold to filter mutual information in each resampled network.')
+    parent_parser.add_argument(
+        '-M', '--apmi-null-model', metavar='FILE',
+        help='Exact-m, exact-depth estimator-matched AP-MI GPD-tail model passed to every resampled network.',
+    )
     parent_parser.add_argument('-d', '--depth', metavar='INT', default=40, help='maximum partitioning depth.')
     parent_parser.add_argument('-c', '--config-dir', metavar='DIR', help='Directory containing ARACNe configuration '
                                                                          'files. Use default configs if not provided.')
     parent_parser.add_argument('-n', '--bootstrap-num', metavar='INT', default=100,
-                               help='Number of bootstrap networks to generate.')
+                               help='Number of resampled networks to generate (legacy option name).')
+    sampling_group = parent_parser.add_mutually_exclusive_group()
+    sampling_group.add_argument(
+        '-sf', '--subsample-fraction', metavar='FLOAT', type=sampling_fraction,
+        help='Fraction of eligible observations sampled without replacement in each network; default: 0.8.',
+    )
+    sampling_group.add_argument(
+        '-sm', '--subsample-size', metavar='INT', type=sampling_size,
+        help='Exact number of eligible observations sampled without replacement in each network.',
+    )
     parent_parser.add_argument('-o', '--output-dir', metavar='DIR', required=True,
                                help='Path to final output directory.')
     parent_parser.add_argument('-tmp', '--tmpdir-prefix', dest='tmpdir_prefix',metavar='DIR', required=True,
@@ -63,6 +91,12 @@ def main():
         config_dir = args.config_dir
     else:
         config_dir = default_config_path
+
+    if args.subsample_size is not None:
+        subsample_spec = str(args.subsample_size)
+    else:
+        fraction = 0.8 if args.subsample_fraction is None else args.subsample_fraction
+        subsample_spec = '{:.12g}%'.format(fraction * 100.0)
         
     if not os.path.isdir(args.tmpdir_prefix):
         os.makedirs(args.tmpdir_prefix)    
@@ -80,9 +114,15 @@ def main():
                    'depth: {}\n' \
                    'aracne_config_dir:\n  class: Directory\n  path: {}\n' \
                    'bootstrap_num: {}\n' \
+                   'subsample_spec: {}\n' \
                    'final_out_dir_name: {}'.format(os.path.abspath(args.exp_file), os.path.abspath(args.hub_genes),
                                                    args.p_value_consensus, args.p_value_bootstrap, args.depth,
-                                                   config_dir, args.bootstrap_num, output_dir_name)
+                                                   config_dir, args.bootstrap_num, json.dumps(subsample_spec),
+                                                   output_dir_name)
+        if args.apmi_null_model is not None:
+            contents += '\napmi_null_model:\n  class: File\n  path: {}'.format(
+                json.dumps(os.path.abspath(args.apmi_null_model))
+            )
         logging.info(contents)
         fp_yml.write(contents)
         fp_yml.flush()
