@@ -31,9 +31,12 @@ struct Parameter
    double correction; // coorection for noise
    int    nparLimit;  // maximum allowed value of npar
    int    seed;       // seed
+   int    samplingPopulation; // observations eligible for resampling
+   int    samplingSize;       // observations selected for MI calculation
 
    std::string verbose, infile, outfile, adjfile, hub;
    std::string subnetfile, annotfile, controlId, condition, home_dir;
+   std::string subsampleSpec, samplingMethod;
 
    std::vector<std::string> subnet, tf_list;
 
@@ -41,9 +44,10 @@ struct Parameter
       : threshold(default_threshold), pvalue(default_pvalue), eps(default_eps),
         sigma(default_sigma), sample(default_sample), percent(default_percent),
         mean(default_mean), cv(default_cv), correction(default_correction),
-        nparLimit(default_nparLimit), seed(default_seed), verbose("off"), infile(""), outfile(""),
-        adjfile(""), hub(""), subnetfile(""), annotfile(""), controlId(""),
-        condition(""), home_dir("./"), subnet(), tf_list() { }
+        nparLimit(default_nparLimit), seed(default_seed), samplingPopulation(0),
+        samplingSize(0), verbose("off"), infile(""), outfile(""), adjfile(""),
+        hub(""), subnetfile(""), annotfile(""), controlId(""), condition(""),
+        home_dir("./"), subsampleSpec(""), samplingMethod(""), subnet(), tf_list() { }
 };
 
 //------------------------------------------------------------------------------------
@@ -52,5 +56,6 @@ bool equalIgnoreCase(std::string a, std::string b);
 void checkParameter(Parameter &p);
 void displayParameter(Parameter &p);
 void createOutfileName(Parameter &p );
+int resolveSubsampleSize(const std::string& spec, int populationSize);
 
 #endif
