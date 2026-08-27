@@ -87,7 +87,7 @@ universe fixed. It used deterministic nested TF and SIG panels, the same
 $\epsilon_{\mathrm{DPI}}=0$, and the operating-point AP-MI filters from PR
 #72. The same panel was supplied to **-s** and **-l**.
 
-| Network | Small hubs | Middle hubs | Full hubs | Median pruning fraction, small / middle / full | Difference of arm medians, full minus small |
+| Network | Small hubs | Middle hubs | Full hubs | Median pruning fraction over 100 seeds, small / middle / full | Difference of arm medians, full minus small |
 |---|---:|---:|---:|---:|---:|
 | TF | 326 | 1,304 | 2,608 | 0.1079 / 0.1917 / 0.2420 | +0.1341 |
 | SIG | 1,335 | 5,340 | 10,680 | 0.2249 / 0.3432 / 0.4166 | +0.1917 |
@@ -114,11 +114,21 @@ available reconstructed/annotated panel.
 All 26,700 matched source-row comparisons had identical pre-DPI edge counts.
 The native $K_{\mathrm{DPI}}=1$ rule nevertheless produced:
 
-| Available SIG panel | Fixed evaluated sources | Median pruning fraction |
+| Available SIG panel | Fixed evaluated sources | Median pruning fraction over 10 seeds |
 |---:|---:|---:|
 | 1,335 | 1,335 | 0.2264 |
 | 5,340 | 1,335 | 0.3372 |
 | 10,680 | 1,335 | 0.3959 |
+
+The two sections use different seed windows. The primary pilot value 0.2249
+for 1,335 SIG hubs is the median over seeds 1 through 100
+(0.2249030821). The fixed-source value 0.2264 is the median over seeds 1
+through 10 (0.2264073464). Recomputing the primary pilot from only those first
+ten seeds gives exactly 0.2264073464. At this smallest panel, the fixed 1,335
+sources are also the complete source set, and the audit exactly reproduced the
+pilot's per-seed pre-DPI counts, pruned counts, and fractions. The numerical
+difference is therefore caused only by summarizing 10 rather than 100 seeds,
+not by a different denominator or DPI calculation.
 
 The median full-minus-small increase was 0.1692. Because the samples and
 evaluated source genes were matched, and every matched source row retained the
