@@ -24,9 +24,9 @@ $$
 An intermediary qualifies when both
 
 $$
-I(A;C)>T_{AB}
+I(A;C)\gt T_{AB}
 \qquad\text{and}\qquad
-I(B;C)>T_{AB},
+I(B;C)\gt T_{AB},
 $$
 
 and the annotation-protection rule permits $C$. The current rule is therefore
@@ -154,7 +154,7 @@ $K_{\mathrm{edge}}$ does not correct the upstream panel-size dependence.
 ## What the witness-threshold screen showed
 
 The diagnostic also counted how many eligible DPI witnesses supported each
-removal. Requiring a fixed $K_{\mathrm{DPI}}>1$ did not mitigate the
+removal. Requiring a fixed $K_{\mathrm{DPI}}\gt 1$ did not mitigate the
 hub-size effect:
 
 - $K_{\mathrm{DPI}}=2,3,5$ increased the fixed-source full-minus-small gap;
@@ -223,7 +223,7 @@ be written to a dedicated output path.
 
 All 30 witness-audit runs exactly reproduced the frozen native
 $K_{\mathrm{DPI}}=1$ sample selection, DPI totals, and adjacency data. The
-sidecar is diagnostic output, not a production $K_{\mathrm{DPI}}>1$ pruning
+sidecar is diagnostic output, not a production $K_{\mathrm{DPI}}\gt 1$ pruning
 option.
 
 ## Evidence and provenance
