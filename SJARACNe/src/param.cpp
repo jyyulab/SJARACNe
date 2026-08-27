@@ -4,11 +4,16 @@
 // Modifications by S.V. Rice, 2017
 //------------------------------------------------------------------------------------
 
+#include <cerrno>
 #include <cctype>
+#include <climits>
+#include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <set>
+#include <sstream>
 #include "param.h"
 
 //------------------------------------------------------------------------------------
@@ -53,6 +58,17 @@ void checkParameter(Parameter &p)
       throw std::string("Either supply one hub gene by '-h' or multiple genes in a "
                         "file by '-s', but not both!");
 
+   if (p.sample < 0)
+      throw std::string("Legacy bootstrap sample number '-r' must be nonnegative!");
+
+   if (p.sample > 0 && p.subsampleSpec != "")
+      throw std::string("Options '-r' (legacy bootstrap) and '-u' (unique "
+                        "subsampling) cannot be used together!");
+
+   if (p.adjfile != "" && (p.subsampleSpec != "" || p.sample > 0))
+      throw std::string("Sampling options '-u' and '-r' cannot be used with an "
+                        "existing adjacency matrix supplied by '-j'.");
+
    if (p.condition != "+" && p.condition != "-" && p.condition != "")
       throw std::string("Condition must be '+' or '-'!");
 
@@ -65,15 +81,32 @@ void checkParameter(Parameter &p)
    if (p.threshold < 0.0)
       throw std::string("MI threshold '-t' must be nonnegative!");
 
-   if (p.threshold > 0.0 && p.pvalue != 1.0)
+   if (p.thresholdSpecified && p.pvalue != 1.0)
       std::cout << "P-value will not be used, since a threshold has been specified."
                 << std::endl;
+
+   // An explicit threshold makes the model irrelevant, including the valid
+   // preserve-all request '-t 0'. Otherwise, both legacy replacement sampling and
+   // adjacency replay violate the estimator/model contract.
+   if (!p.nullModelFile.empty() && !p.thresholdSpecified && p.sample > 0)
+      throw std::string("Estimator-matched AP-MI null models ('-M') cannot be used "
+                        "with legacy replacement sampling '-r'; use fixed-size "
+                        "sampling without replacement '-u' or an explicit '-t'.");
+
+   if (!p.nullModelFile.empty() && !p.thresholdSpecified && !p.adjfile.empty())
+      throw std::string("Estimator-matched AP-MI null models ('-M') cannot be used "
+                        "while replaying an existing adjacency matrix with '-j'; "
+                        "use the threshold recorded in that matrix or an explicit '-t'.");
 
    if (p.pvalue <= 0.0 || p.pvalue > 1.0)
       throw std::string("P-value '-p' must be in the range (0,1]!");
 
    if (p.eps < 0.0 || p.eps > 1.0)
       throw std::string("DPI tolerance '-e' must be within [0,1]!");
+
+   if (!p.dpiWitnessFile.empty() && p.eps == 1.0)
+      throw std::string("DPI witness diagnostic '-W' requires active DPI "
+                        "('-e' must be less than 1).");
 
    if (p.percent <= 0.0 || p.percent >= 1.0)
       throw std::string("Percentage microarray must be within (0,1)!");
@@ -102,6 +135,79 @@ void checkParameter(Parameter &p)
       if (b == std::string::npos || b < len - 1)
          p.home_dir += "/";
    }
+}
+
+//------------------------------------------------------------------------------------
+// resolveSubsampleSize() converts either an exact count (for example, "80") or an
+// explicit percentage (for example, "80%") to a fixed observation count.
+
+int resolveSubsampleSize(const std::string& spec, int populationSize)
+{
+   if (populationSize < 1)
+      throw std::string("Cannot subsample an empty observation population.");
+
+   if (spec.empty())
+      throw std::string("Unique subsampling '-u' requires a count or percentage.");
+
+   const bool isPercent = spec[spec.length() - 1] == '%';
+   const std::string value =
+      (isPercent ? spec.substr(0, spec.length() - 1) : spec);
+
+   if (value.empty())
+      throw std::string("Unique subsampling '-u' must be an integer count or a "
+                        "percentage such as 80%.");
+
+   errno = 0;
+   char *end = NULL;
+   int sampleSize = 0;
+
+   if (isPercent)
+   {
+      const double percentage = std::strtod(value.c_str(), &end);
+
+      if (errno == ERANGE || end == value.c_str() || *end != '\0' ||
+          !std::isfinite(percentage))
+         throw std::string("Unique subsampling '-u' has an invalid percentage: ") +
+                           spec;
+
+      if (percentage <= 0.0 || percentage > 100.0)
+         throw std::string("Unique subsampling percentage '-u' must be within "
+                           "(0%,100%].");
+
+      const double resolved =
+         std::ceil(percentage * static_cast<double>(populationSize) / 100.0);
+
+      if (resolved > INT_MAX)
+         throw std::string("Unique subsample size is too large.");
+
+      sampleSize = static_cast<int>(resolved);
+   }
+   else
+   {
+      const long parsed = std::strtol(value.c_str(), &end, 10);
+
+      if (errno == ERANGE || end == value.c_str() || *end != '\0' ||
+          parsed > INT_MAX || parsed < INT_MIN)
+         throw std::string("Unique subsampling '-u' has an invalid observation "
+                           "count: ") + spec;
+
+      sampleSize = static_cast<int>(parsed);
+   }
+
+   if (sampleSize < 2)
+      throw std::string("Unique subsampling must select at least 2 observations; "
+                        "requested: ") + spec + ".";
+
+   if (sampleSize > populationSize)
+   {
+      std::ostringstream message;
+      message << "Unique subsampling requested " << sampleSize
+              << " observations, but only " << populationSize
+              << " are eligible.";
+      throw message.str();
+   }
+
+   return sampleSize;
 }
 
 //------------------------------------------------------------------------------------
@@ -183,12 +289,19 @@ void displayParameter(Parameter &p)
    std::cout << "[PARA] Input file:    " << p.infile  << std::endl;
    std::cout << "[PARA] Output file:   " << p.outfile << std::endl;
 
-   if (p.threshold > 0.0)
+   if (p.thresholdSpecified)
       std::cout << "[PARA] MI threshold:  " << p.threshold << std::endl;
    else
       std::cout << "[PARA] MI P-value:    " << p.pvalue    << std::endl;
 
+   if (!p.nullModelFile.empty())
+      std::cout << "[PARA] AP-MI null model: " << p.nullModelFile << std::endl;
+
    std::cout << "[PARA] DPI tolerance: " << p.eps << std::endl;
+
+   if (!p.dpiWitnessFile.empty())
+      std::cout << "[PARA] DPI witness diagnostic: " << p.dpiWitnessFile
+                << std::endl;
 
    if (p.correction > 0.0)
       std::cout << "[PARA] Correction for MI estimation (array noise level: "
@@ -215,6 +328,13 @@ void displayParameter(Parameter &p)
       std::cout << "[PARA] Condition:     " << p.condition << std::endl;
       std::cout << "[PARA] Percentage:    " << p.percent   << std::endl;
    }
+
+   if (p.subsampleSpec != "")
+      std::cout << "[PARA] Subsampling:   " << p.subsampleSpec
+                << " without replacement" << std::endl;
+   else if (p.sample > 0)
+      std::cout << "[PARA] Sampling:      legacy bootstrap with replacement"
+                << std::endl;
 
    if (p.annotfile != "")
    {
@@ -294,6 +414,18 @@ void createOutfileName(Parameter &p)
    {
       std::sprintf(buffer, "%03i", p.sample);
       filename += std::string("_r") + buffer;
+   }
+
+   if (p.subsampleSpec != "")
+   {
+      std::string samplingLabel = p.subsampleSpec;
+      std::string::size_type percent = samplingLabel.find('%');
+      if (percent != std::string::npos)
+         samplingLabel.replace(percent, 1, "pct");
+      filename += "_u" + samplingLabel;
+
+      std::sprintf(buffer, "%i", p.seed);
+      filename += std::string("_S") + buffer;
    }
 
    p.outfile = filename + ".adj";
