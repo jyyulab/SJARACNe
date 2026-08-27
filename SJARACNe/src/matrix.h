@@ -181,6 +181,9 @@ public:
                           std::vector<int>& upper);
 
    void bootStrap(std::vector<int>& boot, const std::vector<int> *arrays);
+   void sampleWithoutReplacement(std::vector<int>& sample, int sampleSize,
+                                 unsigned int seed,
+                                 const std::vector<int> *arrays) const;
    void addNoise();
 
 private:
