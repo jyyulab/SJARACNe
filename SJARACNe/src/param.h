@@ -36,6 +36,7 @@ struct Parameter
    bool   thresholdSpecified; // whether -t was supplied, including -t 0
 
    std::string verbose, infile, outfile, adjfile, hub;
+   std::string dpiWitnessFile;
    std::string subnetfile, annotfile, controlId, condition, home_dir;
    std::string subsampleSpec, samplingMethod;
    std::string nullModelFile, thresholdMethod;
@@ -56,7 +57,7 @@ struct Parameter
         mean(default_mean), cv(default_cv), correction(default_correction),
         nparLimit(default_nparLimit), seed(default_seed), samplingPopulation(0),
         samplingSize(0), thresholdSpecified(false), verbose("off"), infile(""), outfile(""), adjfile(""),
-        hub(""), subnetfile(""), annotfile(""), controlId(""), condition(""),
+        hub(""), dpiWitnessFile(""), subnetfile(""), annotfile(""), controlId(""), condition(""),
         home_dir("./"), subsampleSpec(""), samplingMethod(""), nullModelFile(""),
         thresholdMethod("none"), nullModelFormat(""), nullModelKernelSchema(""),
         nullModelEstimator(""), nullModelTailModel(""), nullModelGeneratorSha256(""),
